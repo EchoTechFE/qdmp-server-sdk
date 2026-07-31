@@ -1,0 +1,53 @@
+name: Go CI
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "go/v*.*.*"
+    paths:
+      - "go/**"
+      - "shared/**"
+      - ".github/workflows/go-ci.yml"
+  pull_request:
+    paths:
+      - "go/**"
+      - "shared/**"
+      - ".github/workflows/go-ci.yml"
+
+defaults:
+  run:
+    working-directory: go
+
+jobs:
+  go:
+    name: gofmt / vet / staticcheck / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+
+      - name: go test -race
+        run: go test ./... -race -count=1
+
+      - name: gofmt
+        run: |
+          fmt_out="$(gofmt -l .)"
+          if [ -n "$fmt_out" ]; then
+            echo "gofmt found unformatted files:"
+            echo "$fmt_out"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: staticcheck
+        uses: dominikh/staticcheck-action@v1
+        with:
+          version: latest
+          working-directory: go
+          install-go: false

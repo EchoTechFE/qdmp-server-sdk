@@ -1,0 +1,46 @@
+name: Node CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "node/**"
+      - "shared/**"
+      - ".github/workflows/node-ci.yml"
+  pull_request:
+    paths:
+      - "node/**"
+      - "shared/**"
+      - ".github/workflows/node-ci.yml"
+
+defaults:
+  run:
+    working-directory: node
+
+jobs:
+  node:
+    name: typecheck / lint / build / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+
+      - name: npm ci
+        run: npm ci
+
+      - name: test
+        run: npm test
+
+      - name: typecheck
+        run: npm run typecheck
+
+      - name: lint
+        run: npm run lint
+
+      - name: build
+        run: npm run build

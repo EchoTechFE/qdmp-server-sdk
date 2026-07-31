@@ -1,0 +1,62 @@
+name: Generate Check
+
+# Re-runs every codegen step from shared/openapi.yaml (shared/scripts/regenerate-all.sh)
+# and fails if the working tree ends up different from what's committed —
+# catches spec/generated-code drift (someone edited openapi.yaml without
+# regenerating, or hand-edited a generated file directly).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "shared/**"
+      - "node/scripts/gen-route-meta.mjs"
+      - "java/scripts/gen-route-meta.mjs"
+      - "go/generated/oapi-codegen-config.yaml"
+      - ".github/workflows/generate-check.yml"
+  pull_request:
+    paths:
+      - "shared/**"
+      - "node/scripts/gen-route-meta.mjs"
+      - "java/scripts/gen-route-meta.mjs"
+      - "go/generated/oapi-codegen-config.yaml"
+      - ".github/workflows/generate-check.yml"
+
+jobs:
+  generate-check:
+    name: regenerate and diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go/go.mod
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: install node deps (for openapi-typescript)
+        run: npm ci
+        working-directory: node
+
+      - name: install oapi-codegen
+        run: |
+          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: regenerate everything from shared/openapi.yaml
+        run: bash shared/scripts/regenerate-all.sh
+
+      - name: fail on drift
+        run: |
+          if ! git diff --exit-code -- shared/generated node/src/generated java/generated go/generated; then
+            echo "::error::Generated code is out of date with shared/openapi.yaml. Run shared/scripts/regenerate-all.sh and commit the result."
+            exit 1
+          fi

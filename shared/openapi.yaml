@@ -1,0 +1,3920 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "千岛开放平台 API（qdmp OpenAPI）",
+    "version": "1.0.0",
+    "description": "千岛(qdmp)对外 OpenAPI 定义，作为 Node/Java/Go 三端 SDK 类型生成与路由元数据生成的单一真源。逐条核对官方接口文档，并结合真实测试账号的实测结果订正（详见各字段 description 中的“实测确认”标注）。",
+    "x-format-note": "本文件内容是合法 JSON（JSON 是 YAML 1.2 的严格子集），使用 .yaml 扩展名是为了贴合 OpenAPI 生态的书写习惯；shared/scripts/gen-route-meta.mjs 用 Node 内置 JSON.parse 直接读取本文件，零第三方依赖，也避免了手写 YAML 缩进解析器的脆弱性。任意标准 YAML 解析器或 OpenAPI 工具链也都能正确解析本文件。"
+  },
+  "servers": [
+    {
+      "url": "https://openapi.qiandao.com"
+    }
+  ],
+  "x-error-codes": [
+    {
+      "code": 10001,
+      "name": "APP_ID_INVALID",
+      "message": "appId 无效",
+      "source": "文档"
+    },
+    {
+      "code": 10002,
+      "name": "APP_SECRET_MISMATCH",
+      "message": "密钥不匹配",
+      "source": "文档"
+    },
+    {
+      "code": 10003,
+      "name": "AUTH_CODE_INVALID",
+      "message": "授权码错误",
+      "source": "文档"
+    },
+    {
+      "code": 10004,
+      "name": "GRANT_TYPE_UNSUPPORTED",
+      "message": "认证类型不支持",
+      "source": "文档"
+    },
+    {
+      "code": 10005,
+      "name": "ACCESS_TOKEN_INVALID",
+      "message": "access_token 格式错误或已吊销",
+      "source": "实测（文档未收录）——由业务端点（如 user/v1/me）在 access-token 失效时返回，表现为真实 HTTP 401，而非 HTTP 200 携带错误 code。"
+    },
+    {
+      "code": 10006,
+      "name": "ACCESS_TOKEN_EXPIRED",
+      "message": "access_token 超过有效期",
+      "source": "实测（文档未收录）——用一个已过期的用户级 access_token 调 user/v1/me 实测得到，真实 HTTP 401，与 10005（格式错误/已吊销）是不同的码，不能合并处理。"
+    },
+    {
+      "code": 10007,
+      "name": "REFRESH_TOKEN_INVALID",
+      "message": "refreshToken 错误",
+      "source": "文档"
+    },
+    {
+      "code": 10008,
+      "name": "REFRESH_TOKEN_EXPIRED",
+      "message": "refreshToken 超过有效期",
+      "source": "文档（实测复核确认：HTTP 200 + 该 code，不代表业务成功）"
+    }
+  ],
+  "tags": [
+    {
+      "name": "auth",
+      "description": "认证：OAuth2 获取/刷新 Access Token"
+    },
+    {
+      "name": "user",
+      "description": "用户：获取当前授权用户信息"
+    },
+    {
+      "name": "island",
+      "description": "岛屿：获取岛详情"
+    },
+    {
+      "name": "spu",
+      "description": "商品：查询和搜索商品信息"
+    },
+    {
+      "name": "tag",
+      "description": "标签：查询标签分类"
+    },
+    {
+      "name": "marks",
+      "description": "标记：管理用户的商品标记与评分"
+    },
+    {
+      "name": "wishspu",
+      "description": "想要：批量添加/取消想要，查询想要列表"
+    },
+    {
+      "name": "genai",
+      "description": "GenAI：异步 AI 生成任务（经上游 AI 网关调度）"
+    }
+  ],
+  "paths": {
+    "/auth/v1/token": {
+      "post": {
+        "operationId": "authToken",
+        "tags": [
+          "auth"
+        ],
+        "summary": "获取访问令牌",
+        "description": "支持两种授权模式：CLIENT_CREDENTIALS（客户端凭证）和 AUTHORIZATION_CODE（授权码，用户登录后）。",
+        "x-qdmp-auth-scheme": "noAuth",
+        "x-qdmp-token-required": false,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "grantType": {
+                    "type": "string",
+                    "enum": [
+                      "CLIENT_CREDENTIALS",
+                      "AUTHORIZATION_CODE"
+                    ],
+                    "description": "授权类型：CLIENT_CREDENTIALS 或 AUTHORIZATION_CODE"
+                  },
+                  "appId": {
+                    "type": "string",
+                    "description": "应用 ID"
+                  },
+                  "appSecret": {
+                    "type": "string",
+                    "description": "应用密钥"
+                  },
+                  "code": {
+                    "type": "string",
+                    "description": "授权码，来自 qd.login()。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。"
+                  }
+                },
+                "required": [
+                  "grantType",
+                  "appId",
+                  "appSecret"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "成功获取 token。已知业务错误码（通过 code 字段表达）：10001 appId 无效、10002 密钥不匹配、10003 授权码错误、10004 认证类型不支持。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string",
+                              "description": "访问令牌"
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "description": "过期时间（秒）。实测确认响应为字符串，如 \"1785508950\"，不是数字（源文档标注 int64，容易误判为 number，此处按实测订正为 string）。"
+                            },
+                            "refreshToken": {
+                              "type": "string",
+                              "description": "刷新令牌"
+                            },
+                            "openId": {
+                              "type": "string",
+                              "description": "用户应用下唯一标识"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/v1/refresh": {
+      "post": {
+        "operationId": "authRefresh",
+        "tags": [
+          "auth"
+        ],
+        "summary": "刷新令牌",
+        "description": "使用 refreshToken 获取新的 accessToken。",
+        "x-qdmp-auth-scheme": "noAuth",
+        "x-qdmp-token-required": false,
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": {
+                    "type": "string",
+                    "description": "刷新令牌"
+                  }
+                },
+                "required": [
+                  "refreshToken"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "已实测确认：refreshToken 超期时是 HTTP 200 + code=10008，不代表业务成功，调用方必须检查 code 字段。另有 10007 refreshToken 错误。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "accessToken": {
+                              "type": "string",
+                              "description": "新的访问令牌"
+                            },
+                            "expiresAt": {
+                              "type": "string",
+                              "description": "过期时间（秒），实测为字符串"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/user/v1/me": {
+      "get": {
+        "operationId": "userMe",
+        "tags": [
+          "user"
+        ],
+        "summary": "获取当前用户",
+        "description": "无请求参数，通过 access-token 识别用户身份。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "用户唯一标识"
+                            },
+                            "nickname": {
+                              "type": "string",
+                              "description": "用户昵称"
+                            },
+                            "avatar": {
+                              "type": "string",
+                              "description": "用户头像 URL"
+                            },
+                            "identityTags": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "身份/兴趣标签分组。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+                                "additionalProperties": true
+                              },
+                              "description": "身份标签分组"
+                            },
+                            "interestTags": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "身份/兴趣标签分组。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+                                "additionalProperties": true
+                              },
+                              "description": "兴趣标签分组"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/island/v1/detail": {
+      "get": {
+        "operationId": "islandDetail",
+        "tags": [
+          "island"
+        ],
+        "summary": "获取岛详情",
+        "description": "根据 Island ID 获取岛的基本信息。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Island ID（源类型 int64，线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已实测确认：使用 CLIENT_CREDENTIALS 换取的 app 级 token 也可正常调通本接口（HTTP 200 正常业务响应）。SDK 仍要求调用方显式传入某个 token（见 x-qdmp-token-required=true），是否传 app 级还是用户级由调用方决定，不是 SDK 自动 fallback。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "island": {
+                              "type": "object",
+                              "description": "岛信息（island/v1/detail 的 data.island 字段）",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "Island ID（源类型 uint64，线格式为字符串）"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "岛名称"
+                                },
+                                "image": {
+                                  "type": "string",
+                                  "description": "岛封面 URL"
+                                },
+                                "joined": {
+                                  "type": "boolean",
+                                  "description": "当前用户是否已加入"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spu/v1/detail": {
+      "get": {
+        "operationId": "spuDetail",
+        "tags": [
+          "spu"
+        ],
+        "summary": "获取商品详情",
+        "description": "根据 SPU ID 获取商品的详细信息。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "SPU ID（源类型 uint64，线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "spu": {
+                              "type": "object",
+                              "description": "SPU 详情（spu/v1/detail 的 data.spu 字段）",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "SPU ID（源类型 uint64，线格式为字符串）"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "SPU 名称"
+                                },
+                                "image": {
+                                  "type": "string",
+                                  "description": "封面图 URL"
+                                },
+                                "whiteBgPng": {
+                                  "type": "string",
+                                  "description": "白底图 URL"
+                                },
+                                "typeId": {
+                                  "type": "string",
+                                  "description": "类目 ID（源类型 uint64，线格式为字符串）"
+                                },
+                                "typeName": {
+                                  "type": "string",
+                                  "description": "类目名称"
+                                },
+                                "wishCount": {
+                                  "type": "string",
+                                  "description": "想要人数（源类型 uint64，线格式为字符串）"
+                                },
+                                "markCount": {
+                                  "type": "string",
+                                  "description": "标记人数（源类型 uint64，线格式为字符串）"
+                                },
+                                "wishCount3day": {
+                                  "type": "string",
+                                  "description": "近 3 天想要人数（源类型 uint64，线格式为字符串）"
+                                },
+                                "markCount3day": {
+                                  "type": "string",
+                                  "description": "近 3 天标记人数（源类型 uint64，线格式为字符串）"
+                                },
+                                "entryProfileItems": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "object",
+                                    "description": "SPU 资料信息项。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+                                    "additionalProperties": true
+                                  },
+                                  "description": "SPU 资料信息列表"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/spu/v1/search": {
+      "get": {
+        "operationId": "spuSearch",
+        "tags": [
+          "spu"
+        ],
+        "summary": "搜索商品",
+        "description": "按关键词、类目、IP 标签等条件搜索商品列表。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "搜索关键词"
+          },
+          {
+            "name": "ipTag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "IP 标签 ID，用于过滤（uint64 线格式为字符串）"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "类目 ID，用于过滤（uint64 线格式为字符串）"
+          },
+          {
+            "name": "megaId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "系列 ID，查系列下所有 SPU（uint64 线格式为字符串）"
+          },
+          {
+            "name": "classification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分类标签 ID，用于过滤（uint64 线格式为字符串）"
+          },
+          {
+            "name": "filterOptions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "筛选标签 ID 数组，可填多个（uint64[] 线格式为字符串数组）"
+          },
+          {
+            "name": "onlyMega",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "仅查系列 SPU"
+          },
+          {
+            "name": "onlySpu",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "仅查非系列 SPU"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分页偏移量（offset+limit<=100，uint64 线格式为字符串）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "每页数量（offset+limit<=100，uint64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "已实测确认：使用 CLIENT_CREDENTIALS 换取的 app 级 token 可真实调通本接口（HTTP 200 正常业务响应）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供该接口的结构化 respFields，以下字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "spu/v1/search 的 data.items[] 元素。源文档没有为该接口提供结构化 respFields，字段依据 codeExample 注释推断（注释中含 \"...\" 省略号，实际可能还有未列出字段），类型未经严格验证（unverified）。",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "SPU ID（uint64 线格式为字符串）"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "SPU 名称"
+                                  },
+                                  "image": {
+                                    "type": "string",
+                                    "description": "封面图 URL"
+                                  },
+                                  "typeId": {
+                                    "type": "string",
+                                    "description": "类目 ID（uint64 线格式为字符串）"
+                                  },
+                                  "typeName": {
+                                    "type": "string",
+                                    "description": "类目名称"
+                                  },
+                                  "wishCount": {
+                                    "type": "string",
+                                    "description": "想要人数（uint64 线格式为字符串）"
+                                  },
+                                  "markCount": {
+                                    "type": "string",
+                                    "description": "标记人数（uint64 线格式为字符串）"
+                                  }
+                                },
+                                "additionalProperties": true
+                              }
+                            },
+                            "totalCount": {
+                              "type": "string",
+                              "description": "总数（uint64 线格式为字符串）"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tag/v1/detail": {
+      "get": {
+        "operationId": "tagDetail",
+        "tags": [
+          "tag"
+        ],
+        "summary": "获取标签详情",
+        "description": "根据 Tag ID 获取标签信息。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Tag ID（源类型 uint64，线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "tag": {
+                              "type": "object",
+                              "description": "Tag 信息（tag/v1/detail 的 data.tag 字段，同时被 tag/v1/search 的 data.items 复用）",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "Tag ID（源类型 uint64，线格式为字符串）"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "Tag 名称"
+                                },
+                                "image": {
+                                  "type": "string",
+                                  "description": "Tag 图片 URL"
+                                },
+                                "typeId": {
+                                  "type": "string",
+                                  "description": "类目 ID（源类型 uint64，线格式为字符串）"
+                                },
+                                "typeName": {
+                                  "type": "string",
+                                  "description": "类目名称"
+                                },
+                                "island": {
+                                  "allOf": [
+                                    {
+                                      "type": "object",
+                                      "description": "岛信息（island/v1/detail 的 data.island 字段）",
+                                      "properties": {
+                                        "id": {
+                                          "type": "string",
+                                          "description": "Island ID（源类型 uint64，线格式为字符串）"
+                                        },
+                                        "name": {
+                                          "type": "string",
+                                          "description": "岛名称"
+                                        },
+                                        "image": {
+                                          "type": "string",
+                                          "description": "岛封面 URL"
+                                        },
+                                        "joined": {
+                                          "type": "boolean",
+                                          "description": "当前用户是否已加入"
+                                        }
+                                      }
+                                    }
+                                  ],
+                                  "nullable": true,
+                                  "description": "唯一关联岛信息（可能为空）"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tag/v1/search": {
+      "get": {
+        "operationId": "tagSearch",
+        "tags": [
+          "tag"
+        ],
+        "summary": "搜索标签",
+        "description": "按关键词和类目搜索标签列表。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "keyword",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "搜索关键词"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Tag 类目 ID，用于过滤（uint64 线格式为字符串）"
+          },
+          {
+            "name": "classification",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分类标签 ID，用于过滤（uint64 线格式为字符串）"
+          },
+          {
+            "name": "filterOptions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "description": "筛选标签 ID 数组，可填多个（uint64[] 线格式为字符串数组）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分页偏移量（offset+limit<=100，uint64 线格式为字符串）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "每页数量（offset+limit<=100，uint64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供该接口的结构化 respFields，items 复用 Tag schema（依据 codeExample 注释推断，字段与 Tag 完全一致）",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "Tag 信息（tag/v1/detail 的 data.tag 字段，同时被 tag/v1/search 的 data.items 复用）",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "Tag ID（源类型 uint64，线格式为字符串）"
+                                  },
+                                  "name": {
+                                    "type": "string",
+                                    "description": "Tag 名称"
+                                  },
+                                  "image": {
+                                    "type": "string",
+                                    "description": "Tag 图片 URL"
+                                  },
+                                  "typeId": {
+                                    "type": "string",
+                                    "description": "类目 ID（源类型 uint64，线格式为字符串）"
+                                  },
+                                  "typeName": {
+                                    "type": "string",
+                                    "description": "类目名称"
+                                  },
+                                  "island": {
+                                    "allOf": [
+                                      {
+                                        "type": "object",
+                                        "description": "岛信息（island/v1/detail 的 data.island 字段）",
+                                        "properties": {
+                                          "id": {
+                                            "type": "string",
+                                            "description": "Island ID（源类型 uint64，线格式为字符串）"
+                                          },
+                                          "name": {
+                                            "type": "string",
+                                            "description": "岛名称"
+                                          },
+                                          "image": {
+                                            "type": "string",
+                                            "description": "岛封面 URL"
+                                          },
+                                          "joined": {
+                                            "type": "boolean",
+                                            "description": "当前用户是否已加入"
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "nullable": true,
+                                    "description": "唯一关联岛信息（可能为空）"
+                                  }
+                                }
+                              }
+                            },
+                            "totalCount": {
+                              "type": "string",
+                              "description": "总数（uint64 线格式为字符串）"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mark/v1/add": {
+      "post": {
+        "operationId": "markAdd",
+        "tags": [
+          "marks"
+        ],
+        "summary": "添加标记",
+        "description": "为指定 SPU 添加标记，可选附带评分。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "spuId": {
+                    "type": "string",
+                    "description": "SPU ID（源类型 int64，线格式为字符串）"
+                  },
+                  "rating": {
+                    "type": "object",
+                    "description": "评分对象 { value: 1-5 }（可选）",
+                    "properties": {
+                      "value": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 5,
+                        "description": "评分值 1-5"
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "spuId"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "返回的 mark ID（按项目惯例 ID 一律 string 化，具体类型未经实测确认）"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mark/v1/me/list": {
+      "get": {
+        "operationId": "markList",
+        "tags": [
+          "marks"
+        ],
+        "summary": "获取标记列表",
+        "description": "分页获取当前用户的标记列表。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "每页数量（最多 100，int64 线格式为字符串）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分页偏移量（最多 100，int64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "mark/v1/me/list 的 data.items[] 元素。源文档未提供该接口的结构化 respFields，字段名取自 codeExample 注释；markAt/count/createdAt 的具体类型未经实测确认，按本项目“int64/uint64 一律 string 化”的约定建模为 string（unverified，若与实测不符需更新）。",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "mark ID"
+                                  },
+                                  "spu": {
+                                    "type": "object",
+                                    "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "SPU ID（uint64 线格式为字符串）"
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "SPU 名称"
+                                      },
+                                      "image": {
+                                        "type": "string",
+                                        "description": "封面图 URL"
+                                      }
+                                    }
+                                  },
+                                  "markAt": {
+                                    "type": "string",
+                                    "description": "标记时间，类型未经实测确认（推测为时间戳，按 string 建模）"
+                                  },
+                                  "count": {
+                                    "type": "string",
+                                    "description": "标记次数，类型未经实测确认（按 string 建模）"
+                                  },
+                                  "rating": {
+                                    "allOf": [
+                                      {
+                                        "type": "object",
+                                        "description": "评分对象",
+                                        "properties": {
+                                          "value": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 5,
+                                            "description": "评分值 1-5"
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "nullable": true,
+                                    "description": "评分，可能为空"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "创建时间，类型未经实测确认（按 string 建模）"
+                                  },
+                                  "typeId": {
+                                    "type": "string",
+                                    "description": "类目 ID（uint64 线格式为字符串）"
+                                  }
+                                }
+                              }
+                            },
+                            "totalCount": {
+                              "type": "string",
+                              "description": "总数（int64 线格式为字符串）"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mark/v1/me/search": {
+      "get": {
+        "operationId": "markSearch",
+        "tags": [
+          "marks"
+        ],
+        "summary": "搜索标记",
+        "description": "按类目搜索当前用户的标记。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "类目 ID，用于过滤（int64 线格式为字符串）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "每页数量（最多 100，int64 线格式为字符串）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "分页偏移量（最多 100，int64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，items 内部结构未展开（源注释为 \"...\"），totalCount 最多 999（源注释标注上限，含义未进一步说明）",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "mark/v1/me/list 的 data.items[] 元素。源文档未提供该接口的结构化 respFields，字段名取自 codeExample 注释；markAt/count/createdAt 的具体类型未经实测确认，按本项目“int64/uint64 一律 string 化”的约定建模为 string（unverified，若与实测不符需更新）。",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "mark ID"
+                                  },
+                                  "spu": {
+                                    "type": "object",
+                                    "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "SPU ID（uint64 线格式为字符串）"
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "SPU 名称"
+                                      },
+                                      "image": {
+                                        "type": "string",
+                                        "description": "封面图 URL"
+                                      }
+                                    }
+                                  },
+                                  "markAt": {
+                                    "type": "string",
+                                    "description": "标记时间，类型未经实测确认（推测为时间戳，按 string 建模）"
+                                  },
+                                  "count": {
+                                    "type": "string",
+                                    "description": "标记次数，类型未经实测确认（按 string 建模）"
+                                  },
+                                  "rating": {
+                                    "allOf": [
+                                      {
+                                        "type": "object",
+                                        "description": "评分对象",
+                                        "properties": {
+                                          "value": {
+                                            "type": "integer",
+                                            "minimum": 1,
+                                            "maximum": 5,
+                                            "description": "评分值 1-5"
+                                          }
+                                        }
+                                      }
+                                    ],
+                                    "nullable": true,
+                                    "description": "评分，可能为空"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "创建时间，类型未经实测确认（按 string 建模）"
+                                  },
+                                  "typeId": {
+                                    "type": "string",
+                                    "description": "类目 ID（uint64 线格式为字符串）"
+                                  }
+                                }
+                              }
+                            },
+                            "totalCount": {
+                              "type": "string",
+                              "description": "总数（int64 线格式为字符串），源注释标注“最多 999”"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mark/v1/me/detail": {
+      "get": {
+        "operationId": "markDetail",
+        "tags": [
+          "marks"
+        ],
+        "summary": "标记详情",
+        "description": "获取标记详情，含历史记录。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "mark spu info ID（int64 线格式为字符串）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "历史记录每页数量（最多 100，int64 线格式为字符串）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "历史记录分页偏移量（最多 100，int64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "mark spu info ID"
+                            },
+                            "spu": {
+                              "type": "object",
+                              "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+                              "properties": {
+                                "id": {
+                                  "type": "string",
+                                  "description": "SPU ID（uint64 线格式为字符串）"
+                                },
+                                "name": {
+                                  "type": "string",
+                                  "description": "SPU 名称"
+                                },
+                                "image": {
+                                  "type": "string",
+                                  "description": "封面图 URL"
+                                }
+                              }
+                            },
+                            "markAt": {
+                              "type": "string",
+                              "description": "类型未经实测确认"
+                            },
+                            "count": {
+                              "type": "string",
+                              "description": "类型未经实测确认"
+                            },
+                            "rating": {
+                              "allOf": [
+                                {
+                                  "type": "object",
+                                  "description": "评分对象",
+                                  "properties": {
+                                    "value": {
+                                      "type": "integer",
+                                      "minimum": 1,
+                                      "maximum": 5,
+                                      "description": "评分值 1-5"
+                                    }
+                                  }
+                                }
+                              ],
+                              "nullable": true
+                            },
+                            "createdAt": {
+                              "type": "string",
+                              "description": "类型未经实测确认"
+                            },
+                            "typeId": {
+                              "type": "string",
+                              "description": "类目 ID（int64 线格式为字符串）"
+                            },
+                            "typeName": {
+                              "type": "string",
+                              "description": "类目名称"
+                            },
+                            "marks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "mark/v1/me/detail 的 data.marks[] 历史记录元素，字段类型未经实测确认（unverified）",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "历史记录 ID，类型未经实测确认"
+                                  },
+                                  "markAt": {
+                                    "type": "string",
+                                    "description": "标记时间，类型未经实测确认"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "创建时间，类型未经实测确认"
+                                  }
+                                }
+                              },
+                              "description": "历史记录列表"
+                            },
+                            "hasMore": {
+                              "type": "boolean",
+                              "description": "历史记录是否还有更多"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishspu/v1/add": {
+      "post": {
+        "operationId": "wishAdd",
+        "tags": [
+          "wishspu"
+        ],
+        "summary": "批量添加想要",
+        "description": "批量将 SPU 添加到想要列表。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "目标 ID 列表（type 为 SPU 时表示 SPU ID；int64[] 线格式为字符串数组）"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "目标类型：WISH_SPU_TYPE_SPU",
+                    "enum": [
+                      "WISH_SPU_TYPE_SPU"
+                    ]
+                  }
+                },
+                "required": [
+                  "ids",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "successCount": {
+                              "type": "string",
+                              "description": "成功数量，具体线格式未经实测确认，按项目 count 字段惯例建模为 string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishspu/v1/cancel": {
+      "post": {
+        "operationId": "wishCancel",
+        "tags": [
+          "wishspu"
+        ],
+        "summary": "批量取消想要",
+        "description": "批量将 SPU 从想要列表中移除。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "目标 ID 列表（int64[] 线格式为字符串数组）"
+                  },
+                  "type": {
+                    "type": "string",
+                    "description": "目标类型：WISH_SPU_TYPE_SPU",
+                    "enum": [
+                      "WISH_SPU_TYPE_SPU"
+                    ]
+                  }
+                },
+                "required": [
+                  "ids",
+                  "type"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "successCount": {
+                              "type": "string",
+                              "description": "成功数量，具体线格式未经实测确认，按项目 count 字段惯例建模为 string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/wishspu/v1/list": {
+      "get": {
+        "operationId": "wishList",
+        "tags": [
+          "wishspu"
+        ],
+        "summary": "获取想要列表",
+        "description": "分页获取当前用户的想要列表。",
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "name": "typeId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "类目 ID 过滤，为空不过滤（int64 线格式为字符串）"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "起始位置（int64 线格式为字符串）"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "每页数量（int64 线格式为字符串）"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "description": "源文档未提供结构化 respFields，字段依据 codeExample 注释推断（unverified）",
+                          "properties": {
+                            "items": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "description": "wishspu/v1/list 的 data.items[] 元素。源文档未提供结构化 respFields，字段名取自 codeExample 注释，markAt/createdAt 类型未经实测确认（unverified）。",
+                                "properties": {
+                                  "id": {
+                                    "type": "string",
+                                    "description": "想要记录 ID"
+                                  },
+                                  "spu": {
+                                    "type": "object",
+                                    "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "description": "SPU ID（uint64 线格式为字符串）"
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "description": "SPU 名称"
+                                      },
+                                      "image": {
+                                        "type": "string",
+                                        "description": "封面图 URL"
+                                      }
+                                    }
+                                  },
+                                  "typeId": {
+                                    "type": "string",
+                                    "description": "类目 ID（uint64 线格式为字符串）"
+                                  },
+                                  "markAt": {
+                                    "type": "string",
+                                    "description": "类型未经实测确认（按 string 建模）"
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "description": "类型未经实测确认（按 string 建模）"
+                                  }
+                                }
+                              }
+                            },
+                            "totalCount": {
+                              "type": "string",
+                              "description": "总数（int64 线格式为字符串）"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/genai/v1/generate": {
+      "post": {
+        "operationId": "genaiGenerate",
+        "tags": [
+          "genai"
+        ],
+        "summary": "创建生成任务",
+        "description": "创建异步 AI 生成任务，经上游 AI 网关调度。GenAI 接口使用独立鉴权头：x-openapi-access-token 和 x-openapi-app-id。",
+        "x-qdmp-auth-scheme": "genai",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GenaiAccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/GenaiAppIdHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "model": {
+                    "type": "string",
+                    "description": "模型名称，如 google/gemini-3.1-flash-image-preview"
+                  },
+                  "contents": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "description": "GenAI 对话内容项",
+                      "properties": {
+                        "role": {
+                          "type": "string",
+                          "description": "角色，如 'user'"
+                        },
+                        "parts": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "description": "GenAI 对话内容分片，透传至上游模型，已知形态为 text 或 fileData 二选一，不做强类型约束",
+                            "properties": {
+                              "text": {
+                                "type": "string",
+                                "description": "文本内容"
+                              },
+                              "fileData": {
+                                "type": "object",
+                                "description": "文件内容",
+                                "properties": {
+                                  "fileUri": {
+                                    "type": "string"
+                                  },
+                                  "mimeType": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "additionalProperties": true
+                          }
+                        }
+                      }
+                    },
+                    "description": "对话内容数组，每项含 role 和 parts"
+                  },
+                  "generationConfig": {
+                    "type": "object",
+                    "description": "生成配置（透传至上游，无固定结构）",
+                    "additionalProperties": true
+                  },
+                  "safetySettings": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "description": "安全设置（透传至上游）"
+                  },
+                  "tools": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": true
+                    },
+                    "description": "工具配置（透传至上游）"
+                  }
+                },
+                "required": [
+                  "model",
+                  "contents"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "异步任务 ID"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/genai/v1/detail": {
+      "get": {
+        "operationId": "genaiDetail",
+        "tags": [
+          "genai"
+        ],
+        "summary": "查询任务状态",
+        "description": "查询异步生成任务的状态与结果。status 取值：PENDING | RUNNING | COMPLETED | FAILED。任务完成后 response 字段包含上游返回的结果。",
+        "x-qdmp-auth-scheme": "genai",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/GenaiAccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/GenaiAppIdHeader"
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "异步任务 ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "业务信封响应（是否代表真正成功需检查 code 字段，见 BusinessEnvelopeBase 说明）",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "allOf": [
+                    {
+                      "type": "object",
+                      "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                      "properties": {
+                        "code": {
+                          "oneOf": [
+                            {
+                              "type": "integer"
+                            },
+                            {
+                              "type": "string"
+                            }
+                          ],
+                          "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                        },
+                        "message": {
+                          "type": "string",
+                          "description": "人类可读的提示信息"
+                        },
+                        "requestId": {
+                          "type": "string",
+                          "description": "请求追踪 ID"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "data": {
+                          "type": "object",
+                          "properties": {
+                            "id": {
+                              "type": "string",
+                              "description": "异步任务 ID"
+                            },
+                            "status": {
+                              "type": "string",
+                              "enum": [
+                                "PENDING",
+                                "RUNNING",
+                                "COMPLETED",
+                                "FAILED"
+                              ],
+                              "description": "任务状态"
+                            },
+                            "response": {
+                              "type": "object",
+                              "nullable": true,
+                              "additionalProperties": true,
+                              "description": "任务完成后包含上游返回结果，结构随模型而变，不作强类型约束"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "实测确认：access-token 格式错误或已吊销时返回真实 HTTP 401（业务 code=10005，文档未收录）。",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+                  "properties": {
+                    "code": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "type": "string"
+                        }
+                      ],
+                      "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "人类可读的提示信息"
+                    },
+                    "requestId": {
+                      "type": "string",
+                      "description": "请求追踪 ID"
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "网关层错误（第二种信封，无 data/requestId），已知示例：code=13 query parse error、code=2 openid is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+                  "properties": {
+                    "code": {
+                      "type": "integer",
+                      "description": "类 gRPC 状态码，实测见过 2、13"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "details": {
+                      "description": "错误详情，具体结构未完全验证",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "AccessTokenHeader": {
+        "name": "access-token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。"
+      },
+      "QdmpVersionHeader": {
+        "name": "x-echo-qdmp-version",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "default": "1.0"
+        },
+        "description": "qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 \"1.0\"。仅 standard 鉴权方案需要。"
+      },
+      "GenaiAccessTokenHeader": {
+        "name": "x-openapi-access-token",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "GenAI 接口专用访问令牌。genai 鉴权方案不使用 access-token / x-echo-qdmp-version 这两个 standard 方案的头。"
+      },
+      "GenaiAppIdHeader": {
+        "name": "x-openapi-app-id",
+        "in": "header",
+        "required": true,
+        "schema": {
+          "type": "string"
+        },
+        "description": "GenAI 接口专用应用 ID。"
+      }
+    },
+    "schemas": {
+      "BusinessEnvelopeBase": {
+        "type": "object",
+        "description": "业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串(\"0\")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。",
+        "properties": {
+          "code": {
+            "oneOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "业务状态码，0/\"0\" 通常表示成功，非零/非\"0\"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。"
+          },
+          "message": {
+            "type": "string",
+            "description": "人类可读的提示信息"
+          },
+          "requestId": {
+            "type": "string",
+            "description": "请求追踪 ID"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "GatewayErrorEnvelope": {
+        "type": "object",
+        "description": "第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13(\"query parse error\")、2(\"openid is required\")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。",
+        "properties": {
+          "code": {
+            "type": "integer",
+            "description": "类 gRPC 状态码，实测见过 2、13"
+          },
+          "message": {
+            "type": "string"
+          },
+          "details": {
+            "description": "错误详情，具体结构未完全验证",
+            "nullable": true
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ]
+      },
+      "TagGroup": {
+        "type": "object",
+        "description": "身份/兴趣标签分组。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+        "additionalProperties": true
+      },
+      "ProfileItem": {
+        "type": "object",
+        "description": "SPU 资料信息项。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+        "additionalProperties": true
+      },
+      "Island": {
+        "type": "object",
+        "description": "岛信息（island/v1/detail 的 data.island 字段）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Island ID（源类型 uint64，线格式为字符串）"
+          },
+          "name": {
+            "type": "string",
+            "description": "岛名称"
+          },
+          "image": {
+            "type": "string",
+            "description": "岛封面 URL"
+          },
+          "joined": {
+            "type": "boolean",
+            "description": "当前用户是否已加入"
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "description": "Tag 信息（tag/v1/detail 的 data.tag 字段，同时被 tag/v1/search 的 data.items 复用）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Tag ID（源类型 uint64，线格式为字符串）"
+          },
+          "name": {
+            "type": "string",
+            "description": "Tag 名称"
+          },
+          "image": {
+            "type": "string",
+            "description": "Tag 图片 URL"
+          },
+          "typeId": {
+            "type": "string",
+            "description": "类目 ID（源类型 uint64，线格式为字符串）"
+          },
+          "typeName": {
+            "type": "string",
+            "description": "类目名称"
+          },
+          "island": {
+            "allOf": [
+              {
+                "type": "object",
+                "description": "岛信息（island/v1/detail 的 data.island 字段）",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "description": "Island ID（源类型 uint64，线格式为字符串）"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "岛名称"
+                  },
+                  "image": {
+                    "type": "string",
+                    "description": "岛封面 URL"
+                  },
+                  "joined": {
+                    "type": "boolean",
+                    "description": "当前用户是否已加入"
+                  }
+                }
+              }
+            ],
+            "nullable": true,
+            "description": "唯一关联岛信息（可能为空）"
+          }
+        }
+      },
+      "Spu": {
+        "type": "object",
+        "description": "SPU 详情（spu/v1/detail 的 data.spu 字段）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "SPU ID（源类型 uint64，线格式为字符串）"
+          },
+          "name": {
+            "type": "string",
+            "description": "SPU 名称"
+          },
+          "image": {
+            "type": "string",
+            "description": "封面图 URL"
+          },
+          "whiteBgPng": {
+            "type": "string",
+            "description": "白底图 URL"
+          },
+          "typeId": {
+            "type": "string",
+            "description": "类目 ID（源类型 uint64，线格式为字符串）"
+          },
+          "typeName": {
+            "type": "string",
+            "description": "类目名称"
+          },
+          "wishCount": {
+            "type": "string",
+            "description": "想要人数（源类型 uint64，线格式为字符串）"
+          },
+          "markCount": {
+            "type": "string",
+            "description": "标记人数（源类型 uint64，线格式为字符串）"
+          },
+          "wishCount3day": {
+            "type": "string",
+            "description": "近 3 天想要人数（源类型 uint64，线格式为字符串）"
+          },
+          "markCount3day": {
+            "type": "string",
+            "description": "近 3 天标记人数（源类型 uint64，线格式为字符串）"
+          },
+          "entryProfileItems": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "SPU 资料信息项。源文档未展开内部字段结构，先按未知形状建模（unverified）。",
+              "additionalProperties": true
+            },
+            "description": "SPU 资料信息列表"
+          }
+        }
+      },
+      "SpuSummary": {
+        "type": "object",
+        "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "SPU ID（uint64 线格式为字符串）"
+          },
+          "name": {
+            "type": "string",
+            "description": "SPU 名称"
+          },
+          "image": {
+            "type": "string",
+            "description": "封面图 URL"
+          }
+        }
+      },
+      "SpuListItem": {
+        "type": "object",
+        "description": "spu/v1/search 的 data.items[] 元素。源文档没有为该接口提供结构化 respFields，字段依据 codeExample 注释推断（注释中含 \"...\" 省略号，实际可能还有未列出字段），类型未经严格验证（unverified）。",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "SPU ID（uint64 线格式为字符串）"
+          },
+          "name": {
+            "type": "string",
+            "description": "SPU 名称"
+          },
+          "image": {
+            "type": "string",
+            "description": "封面图 URL"
+          },
+          "typeId": {
+            "type": "string",
+            "description": "类目 ID（uint64 线格式为字符串）"
+          },
+          "typeName": {
+            "type": "string",
+            "description": "类目名称"
+          },
+          "wishCount": {
+            "type": "string",
+            "description": "想要人数（uint64 线格式为字符串）"
+          },
+          "markCount": {
+            "type": "string",
+            "description": "标记人数（uint64 线格式为字符串）"
+          }
+        },
+        "additionalProperties": true
+      },
+      "Rating": {
+        "type": "object",
+        "description": "评分对象",
+        "properties": {
+          "value": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 5,
+            "description": "评分值 1-5"
+          }
+        }
+      },
+      "MarkListItem": {
+        "type": "object",
+        "description": "mark/v1/me/list 的 data.items[] 元素。源文档未提供该接口的结构化 respFields，字段名取自 codeExample 注释；markAt/count/createdAt 的具体类型未经实测确认，按本项目“int64/uint64 一律 string 化”的约定建模为 string（unverified，若与实测不符需更新）。",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "mark ID"
+          },
+          "spu": {
+            "type": "object",
+            "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "SPU ID（uint64 线格式为字符串）"
+              },
+              "name": {
+                "type": "string",
+                "description": "SPU 名称"
+              },
+              "image": {
+                "type": "string",
+                "description": "封面图 URL"
+              }
+            }
+          },
+          "markAt": {
+            "type": "string",
+            "description": "标记时间，类型未经实测确认（推测为时间戳，按 string 建模）"
+          },
+          "count": {
+            "type": "string",
+            "description": "标记次数，类型未经实测确认（按 string 建模）"
+          },
+          "rating": {
+            "allOf": [
+              {
+                "type": "object",
+                "description": "评分对象",
+                "properties": {
+                  "value": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 5,
+                    "description": "评分值 1-5"
+                  }
+                }
+              }
+            ],
+            "nullable": true,
+            "description": "评分，可能为空"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间，类型未经实测确认（按 string 建模）"
+          },
+          "typeId": {
+            "type": "string",
+            "description": "类目 ID（uint64 线格式为字符串）"
+          }
+        }
+      },
+      "MarkDetailHistoryItem": {
+        "type": "object",
+        "description": "mark/v1/me/detail 的 data.marks[] 历史记录元素，字段类型未经实测确认（unverified）",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "历史记录 ID，类型未经实测确认"
+          },
+          "markAt": {
+            "type": "string",
+            "description": "标记时间，类型未经实测确认"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "创建时间，类型未经实测确认"
+          }
+        }
+      },
+      "WishListItem": {
+        "type": "object",
+        "description": "wishspu/v1/list 的 data.items[] 元素。源文档未提供结构化 respFields，字段名取自 codeExample 注释，markAt/createdAt 类型未经实测确认（unverified）。",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "想要记录 ID"
+          },
+          "spu": {
+            "type": "object",
+            "description": "SPU 摘要信息，出现在 mark/wishspu 相关接口的 data.items[].spu 字段（源 codeExample 注释里的 spu: { id, name, image }）",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "SPU ID（uint64 线格式为字符串）"
+              },
+              "name": {
+                "type": "string",
+                "description": "SPU 名称"
+              },
+              "image": {
+                "type": "string",
+                "description": "封面图 URL"
+              }
+            }
+          },
+          "typeId": {
+            "type": "string",
+            "description": "类目 ID（uint64 线格式为字符串）"
+          },
+          "markAt": {
+            "type": "string",
+            "description": "类型未经实测确认（按 string 建模）"
+          },
+          "createdAt": {
+            "type": "string",
+            "description": "类型未经实测确认（按 string 建模）"
+          }
+        }
+      },
+      "GenaiPart": {
+        "type": "object",
+        "description": "GenAI 对话内容分片，透传至上游模型，已知形态为 text 或 fileData 二选一，不做强类型约束",
+        "properties": {
+          "text": {
+            "type": "string",
+            "description": "文本内容"
+          },
+          "fileData": {
+            "type": "object",
+            "description": "文件内容",
+            "properties": {
+              "fileUri": {
+                "type": "string"
+              },
+              "mimeType": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "additionalProperties": true
+      },
+      "GenaiContent": {
+        "type": "object",
+        "description": "GenAI 对话内容项",
+        "properties": {
+          "role": {
+            "type": "string",
+            "description": "角色，如 'user'"
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "GenAI 对话内容分片，透传至上游模型，已知形态为 text 或 fileData 二选一，不做强类型约束",
+              "properties": {
+                "text": {
+                  "type": "string",
+                  "description": "文本内容"
+                },
+                "fileData": {
+                  "type": "object",
+                  "description": "文件内容",
+                  "properties": {
+                    "fileUri": {
+                      "type": "string"
+                    },
+                    "mimeType": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "additionalProperties": true
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "name": "@qdmp/qdmp-server-sdk",
+  "version": "0.1.0",
+  "description": "千岛（qdmp）OpenAPI 官方 Node/TypeScript Server SDK",
+  "license": "MIT",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "gts clean",
+    "lint": "gts lint",
+    "fix": "gts fix",
+    "test": "node --import tsx --test \"test/**/*.test.ts\"",
+    "test:coverage": "node --import tsx --test --experimental-test-coverage \"test/**/*.test.ts\"",
+    "codegen": "openapi-typescript ../shared/openapi.yaml -o src/generated/schema.d.ts && node scripts/gen-route-meta.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.5",
+    "gts": "^7.0.0",
+    "jiti": "^2.7.0",
+    "openapi-typescript": "^7.13.0",
+    "tsx": "^4.23.1",
+    "typescript": "^5.6.3",
+    "undici": "^6.28.0"
+  }
+}

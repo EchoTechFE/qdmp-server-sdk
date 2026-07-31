@@ -1,0 +1,10 @@
+# 生成产物，勿手改（config 本身可手改，但下方生成的 types.gen.go 不可）。
+# 由 shared/openapi.yaml 驱动，只生成 models（对应 CLI `-generate types`）。
+# 复现命令（仓库根目录执行）：
+#   oapi-codegen -config go/generated/oapi-codegen-config.yaml shared/openapi.yaml
+package: generated
+output: go/generated/types.gen.go
+generate:
+  models: true
+output-options:
+  skip-prune: false

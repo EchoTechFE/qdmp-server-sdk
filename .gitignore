@@ -1,0 +1,12 @@
+local.env
+.env
+.env.*
+node_modules/
+dist/
+*.log
+*.tsbuildinfo
+
+# Gradle (java/)
+.gradle/
+java/build/
+.claude/

@@ -1,0 +1,39 @@
+name: Java CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "java/**"
+      - "shared/**"
+      - ".github/workflows/java-ci.yml"
+  pull_request:
+    paths:
+      - "java/**"
+      - "shared/**"
+      - ".github/workflows/java-ci.yml"
+
+defaults:
+  run:
+    working-directory: java
+
+jobs:
+  java:
+    name: checkstyle / spotless / test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: gradlew test
+        run: ./gradlew --no-daemon cleanTest test
+
+      - name: gradlew checkstyle
+        run: ./gradlew --no-daemon checkstyleMain checkstyleTest
+
+      - name: gradlew spotlessCheck
+        run: ./gradlew --no-daemon spotlessCheck

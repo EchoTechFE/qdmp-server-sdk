@@ -1,0 +1,66 @@
+name: Publish Java
+
+# Triggered by pushing a tag matching java/vX.Y.Z. Before this can actually
+# publish to Maven Central, someone with EchoTechFE org admin rights needs
+# to:
+#   1. Register/verify the io.github.echotechfe namespace on the Central
+#      Portal (central.sonatype.com) — this needs a manual "Add Namespace" +
+#      a verification repo under the org (GitHub OAuth auto-verify only
+#      covers personal-account namespaces, not orgs). See README for details.
+#   2. Generate a Central Portal user token, set as repo secrets
+#      MAVEN_CENTRAL_USERNAME / MAVEN_CENTRAL_PASSWORD.
+#   3. Generate a GPG signing key (Central Portal requires signed
+#      artifacts), set as repo secrets GPG_SIGNING_KEY (armored private key)
+#      and GPG_SIGNING_PASSWORD.
+#
+# Release flow: bump the "version" field in java/build.gradle.kts (to a
+# non-SNAPSHOT value) in a normal commit on main, then
+# `git tag java/vX.Y.Z && git push origin java/vX.Y.Z`. This workflow fails
+# closed if the tag version doesn't match build.gradle.kts, or if the
+# project version is still a -SNAPSHOT.
+
+on:
+  push:
+    tags:
+      - "java/v*.*.*"
+
+defaults:
+  run:
+    working-directory: java
+
+jobs:
+  publish:
+    name: verify, test, publish to Maven Central
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: verify tag matches project version
+        run: |
+          tag_version="${GITHUB_REF_NAME#java/v}"
+          proj_version="$(./gradlew -q properties | awk -F': ' '/^version:/{print $2}')"
+          if [ "$tag_version" != "$proj_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match build.gradle.kts version $proj_version"
+            exit 1
+          fi
+          case "$proj_version" in
+            *-SNAPSHOT)
+              echo "::error::build.gradle.kts version $proj_version is a SNAPSHOT, cannot publish a release from it"
+              exit 1
+              ;;
+          esac
+
+      - run: ./gradlew --no-daemon cleanTest test checkstyleMain checkstyleTest spotlessCheck
+
+      - name: publish
+        run: ./gradlew --no-daemon publishToMavenCentral --no-configuration-cache
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.GPG_SIGNING_PASSWORD }}

@@ -1,0 +1,52 @@
+name: Publish Node
+
+# Triggered by pushing a tag matching node/vX.Y.Z. Needs a repo secret
+# NPM_TOKEN (an npm automation token with publish rights on the @qdmp org)
+# before this can actually publish. See DEVELOPMENT.md's "发布与版本管理" section.
+#
+# Release flow: bump the "version" field in node/package.json in a normal
+# commit on main, then `git tag node/vX.Y.Z && git push origin node/vX.Y.Z`.
+# This workflow fails closed if the tag version doesn't match package.json.
+
+on:
+  push:
+    tags:
+      - "node/v*.*.*"
+
+defaults:
+  run:
+    working-directory: node
+
+jobs:
+  publish:
+    name: verify, test, npm publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+          cache: npm
+          cache-dependency-path: node/package-lock.json
+
+      - name: verify tag matches package.json version
+        run: |
+          tag_version="${GITHUB_REF_NAME#node/v}"
+          pkg_version="$(node -p "require('./package.json').version")"
+          if [ "$tag_version" != "$pkg_version" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match package.json version $pkg_version"
+            exit 1
+          fi
+
+      - run: npm ci
+      - run: npm test
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run build
+
+      - name: npm publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

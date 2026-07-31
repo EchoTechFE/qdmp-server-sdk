@@ -1,0 +1,121 @@
+[
+  {
+    "operationId": "authToken",
+    "method": "POST",
+    "path": "/auth/v1/token",
+    "authScheme": "noAuth",
+    "tokenRequired": false
+  },
+  {
+    "operationId": "authRefresh",
+    "method": "POST",
+    "path": "/auth/v1/refresh",
+    "authScheme": "noAuth",
+    "tokenRequired": false
+  },
+  {
+    "operationId": "userMe",
+    "method": "GET",
+    "path": "/user/v1/me",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "islandDetail",
+    "method": "GET",
+    "path": "/island/v1/detail",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "spuDetail",
+    "method": "GET",
+    "path": "/spu/v1/detail",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "spuSearch",
+    "method": "GET",
+    "path": "/spu/v1/search",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "tagDetail",
+    "method": "GET",
+    "path": "/tag/v1/detail",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "tagSearch",
+    "method": "GET",
+    "path": "/tag/v1/search",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "markAdd",
+    "method": "POST",
+    "path": "/mark/v1/add",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "markList",
+    "method": "GET",
+    "path": "/mark/v1/me/list",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "markSearch",
+    "method": "GET",
+    "path": "/mark/v1/me/search",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "markDetail",
+    "method": "GET",
+    "path": "/mark/v1/me/detail",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "wishAdd",
+    "method": "POST",
+    "path": "/wishspu/v1/add",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "wishCancel",
+    "method": "POST",
+    "path": "/wishspu/v1/cancel",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "wishList",
+    "method": "GET",
+    "path": "/wishspu/v1/list",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "genaiGenerate",
+    "method": "POST",
+    "path": "/genai/v1/generate",
+    "authScheme": "genai",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "genaiDetail",
+    "method": "GET",
+    "path": "/genai/v1/detail",
+    "authScheme": "genai",
+    "tokenRequired": true
+  }
+]
