@@ -1,8 +1,15 @@
 {
   "name": "@qdmp/qdmp-server-sdk",
   "version": "0.1.0",
-  "description": "千岛（qdmp）OpenAPI 官方 Node/TypeScript Server SDK",
+  "description": "千岛（qdmp）OpenAPI 官方 Node Server SDK",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EchoTechFE/qdmp-server-sdk.git",
+    "directory": "node"
+  },
+  "homepage": "https://github.com/EchoTechFE/qdmp-server-sdk#readme",
+  "bugs": "https://github.com/EchoTechFE/qdmp-server-sdk/issues",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

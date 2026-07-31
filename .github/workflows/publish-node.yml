@@ -2,7 +2,10 @@ name: Publish Node
 
 # Triggered by pushing a tag matching node/vX.Y.Z. Needs a repo secret
 # NPM_TOKEN (an npm automation token with publish rights on the @qdmp org)
-# before this can actually publish. See DEVELOPMENT.md's "发布与版本管理" section.
+# before this can actually publish. Publishes with --provenance (needs the
+# id-token: write permission below) so the published package is signed with
+# a verifiable attestation tying it back to this exact workflow run.
+# See DEVELOPMENT.md's "发布与版本管理" section.
 #
 # Release flow: bump the "version" field in node/package.json in a normal
 # commit on main, then `git tag node/vX.Y.Z && git push origin node/vX.Y.Z`.
@@ -21,6 +24,9 @@ jobs:
   publish:
     name: verify, test, npm publish
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
 
@@ -47,6 +53,6 @@ jobs:
       - run: npm run build
 
       - name: npm publish
-        run: npm publish --access public
+        run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

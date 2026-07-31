@@ -131,3 +131,7 @@ qdmp-server-sdk/
 ## 开发
 
 本地环境搭建、代码生成、构建/测试/覆盖率命令见 [DEVELOPMENT.md](./DEVELOPMENT.md)。
+
+## License
+
+[MIT](./LICENSE)
