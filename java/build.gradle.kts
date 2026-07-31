@@ -16,7 +16,7 @@ plugins {
 }
 
 group = "io.github.echotechfe"
-version = "0.1.0-SNAPSHOT"
+version = "0.1.0"
 
 java {
   sourceCompatibility = JavaVersion.VERSION_11
