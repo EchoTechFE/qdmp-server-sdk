@@ -1,6 +1,6 @@
 /*
- * 千岛开放平台 API（qdmp OpenAPI）
- * 千岛(qdmp)对外 OpenAPI 定义，作为 Node/Java/Go 三端 SDK 类型生成与路由元数据生成的单一真源。逐条核对官方接口文档，并结合真实测试账号的实测结果订正（详见各字段 description 中的“实测确认”标注）。
+ * 千岛小程序开放平台 API（qdmp OpenAPI）
+ * 千岛小程序开放平台(qdmp)对外 OpenAPI 定义，作为 Node.js/Java/Go 三端 SDK 类型生成与路由元数据生成的单一真源。逐条核对官方接口文档，并结合真实测试账号的实测结果订正（详见各字段 description 中的“实测确认”标注）。
  *
  * The version of the OpenAPI document: 1.0.0
  * 
