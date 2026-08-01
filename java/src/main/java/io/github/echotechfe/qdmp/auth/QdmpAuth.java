@@ -95,15 +95,15 @@ public final class QdmpAuth {
   }
 
   // The server reported code:"0" (success), but the SDK still has to guard against a
-  // structurally malformed body: a null `data`, a null `accessToken`, or a non-numeric
-  // `expiresAt` would otherwise surface as a bare NullPointerException/NumberFormatException
-  // instead of one of the SDK's typed exceptions.
+  // structurally malformed body: a null/empty `accessToken` or a non-numeric `expiresAt` would
+  // otherwise surface as a bare NullPointerException/NumberFormatException instead of one of the
+  // SDK's typed exceptions, or worse -- silently cache/return an empty access token.
   private static CachedAppToken toCachedAppToken(AuthToken200ResponseAllOfData data) {
-    if (data == null || data.getAccessToken() == null || data.getExpiresAt() == null) {
-      throw new QdmpTransportException(
-          "qdmp POST /auth/v1/token reported code=\"0\" (success) but returned a malformed body"
-              + " (missing data/accessToken/expiresAt)");
-    }
+    requireNonMalformed(
+        data == null,
+        data == null ? null : data.getAccessToken(),
+        data == null ? null : data.getExpiresAt(),
+        "POST /auth/v1/token");
     long expiresAtEpochSeconds;
     try {
       expiresAtEpochSeconds = Long.parseLong(data.getExpiresAt());
@@ -138,12 +138,19 @@ public final class QdmpAuth {
             .appId(appId)
             .appSecret(appSecret)
             .code(code);
-    return transport.post(
-        AUTH_TOKEN_ROUTE.getPath(),
-        AuthScheme.fromWireValue(AUTH_TOKEN_ROUTE.getAuthScheme()),
-        null,
-        request,
-        AuthToken200ResponseAllOfData.class);
+    AuthToken200ResponseAllOfData data =
+        transport.post(
+            AUTH_TOKEN_ROUTE.getPath(),
+            AuthScheme.fromWireValue(AUTH_TOKEN_ROUTE.getAuthScheme()),
+            null,
+            request,
+            AuthToken200ResponseAllOfData.class);
+    requireNonMalformed(
+        data == null,
+        data == null ? null : data.getAccessToken(),
+        data == null ? null : data.getExpiresAt(),
+        "POST /auth/v1/token");
+    return data;
   }
 
   /**
@@ -160,12 +167,38 @@ public final class QdmpAuth {
           "refreshToken: \"refreshToken\" is required and must be a non-empty string");
     }
     AuthRefreshRequest request = new AuthRefreshRequest().refreshToken(refreshToken);
-    return transport.post(
-        AUTH_REFRESH_ROUTE.getPath(),
-        AuthScheme.fromWireValue(AUTH_REFRESH_ROUTE.getAuthScheme()),
-        null,
-        request,
-        AuthRefresh200ResponseAllOfData.class);
+    AuthRefresh200ResponseAllOfData data =
+        transport.post(
+            AUTH_REFRESH_ROUTE.getPath(),
+            AuthScheme.fromWireValue(AUTH_REFRESH_ROUTE.getAuthScheme()),
+            null,
+            request,
+            AuthRefresh200ResponseAllOfData.class);
+    requireNonMalformed(
+        data == null,
+        data == null ? null : data.getAccessToken(),
+        data == null ? null : data.getExpiresAt(),
+        "POST /auth/v1/refresh");
+    return data;
+  }
+
+  // Shared guard for all three auth endpoints (CLIENT_CREDENTIALS/code2Session/refreshToken): the
+  // server reported code:"0" (success), but the SDK still has to protect callers from a
+  // structurally malformed body -- a null `data` or a null/empty `accessToken`/`expiresAt` must
+  // never be handed back as a silently-broken session/token object.
+  private static void requireNonMalformed(
+      boolean dataIsNull, String accessToken, String expiresAt, String routeDescription) {
+    if (dataIsNull
+        || accessToken == null
+        || accessToken.isEmpty()
+        || expiresAt == null
+        || expiresAt.isEmpty()) {
+      throw new QdmpTransportException(
+          "qdmp "
+              + routeDescription
+              + " reported code=\"0\" (success) but returned a malformed body (missing"
+              + " data/accessToken/expiresAt)");
+    }
   }
 
   private boolean hasSufficientTimeRemaining(CachedAppToken token) {

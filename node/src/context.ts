@@ -14,5 +14,13 @@ export function requireAccessToken(
       'ctx.accessToken is required for this qdmp-server-sdk call',
     );
   }
+  for (let i = 0; i < accessToken.length; i++) {
+    const charCode = accessToken.charCodeAt(i);
+    if (charCode <= 0x1f || charCode === 0x7f) {
+      throw new QdmpValidationError(
+        'ctx.accessToken contains a character that cannot be safely sent as an HTTP header value',
+      );
+    }
+  }
   return accessToken;
 }

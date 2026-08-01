@@ -12,6 +12,14 @@ import (
 // sent, whenever this error is returned.
 var ErrAccessTokenRequired = errors.New("qdmp: access token is required")
 
+// ErrInvalidAccessToken is a sentinel error returned when a caller-supplied
+// access token contains a byte that cannot be safely sent as an HTTP header
+// value (any byte <= 0x1F, or 0x7F/DEL — including a bare tab, 0x09, which
+// Go's net/http would otherwise transmit as-is instead of rejecting it). The
+// SDK fails locally, before any HTTP request is sent, whenever this error is
+// returned.
+var ErrInvalidAccessToken = errors.New("qdmp: access token contains a character that cannot be safely sent as an HTTP header value")
+
 // QdmpApiError represents a business-level failure reported by the qdmp
 // OpenAPI, as opposed to a transport-level failure (network error, etc).
 //

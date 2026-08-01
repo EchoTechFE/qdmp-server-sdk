@@ -13,10 +13,45 @@ import type {HttpClient} from './http.js';
 import type {AppTokenData, RefreshTokenData, SessionData} from './types.js';
 import type {StoredToken, TokenStore} from './token-store.js';
 import {getRouteMeta} from './generated/route-meta.js';
-import {QdmpValidationError} from './errors.js';
+import {QdmpTransportError, QdmpValidationError} from './errors.js';
 
 /** Refresh this many seconds before the token's real expiresAt. */
 const APP_TOKEN_REFRESH_BUFFER_SECONDS = 300;
+
+/** Guards against a malformed "success" response: HTTP 200 + business
+ * code='0' but with a missing/empty accessToken, or an expiresAt that can't
+ * be interpreted as a real timestamp. Must be called before the result is
+ * written to any cache/tokenStore or resolved to the caller — otherwise a
+ * broken value could poison the cache or silently resolve as
+ * undefined/empty to callers. */
+function assertWellFormedTokenResponse(
+  data: {accessToken?: string; expiresAt?: string} | undefined,
+  context: string,
+): void {
+  if (
+    !data ||
+    typeof data.accessToken !== 'string' ||
+    data.accessToken.length === 0
+  ) {
+    throw new QdmpTransportError(
+      `${context}: server response was a business-success envelope but is missing a non-empty accessToken`,
+    );
+  }
+  // Match Go's strconv.ParseInt / Java's Long.parseLong: a strict decimal
+  // integer only. Number(expiresAt) alone is far more permissive than
+  // either — it silently accepts whitespace-only strings (Number('  ')
+  // === 0), scientific notation, hex, and decimals, none of which the
+  // other two SDKs would parse as a valid Unix timestamp.
+  if (
+    typeof data.expiresAt !== 'string' ||
+    !/^\d+$/.test(data.expiresAt) ||
+    !Number.isSafeInteger(Number(data.expiresAt))
+  ) {
+    throw new QdmpTransportError(
+      `${context}: server response was a business-success envelope but expiresAt could not be parsed as a finite number`,
+    );
+  }
+}
 
 export interface AuthModuleConfig {
   http: HttpClient;
@@ -88,6 +123,7 @@ export class AuthModule {
     if (!this.inFlight) {
       this.inFlight = this.requestClientCredentialsToken()
         .then(async token => {
+          assertWellFormedTokenResponse(token, 'auth.getAccessToken');
           this.cachedToken = token;
           await Promise.resolve(this.tokenStore.set(token));
           return token.accessToken;
@@ -120,7 +156,7 @@ export class AuthModule {
       );
     }
     const route = getRouteMeta('authToken');
-    return this.http.request<SessionData>({
+    const session = await this.http.request<SessionData>({
       method: route.method,
       path: route.path,
       authScheme: route.authScheme,
@@ -131,6 +167,8 @@ export class AuthModule {
         code,
       },
     });
+    assertWellFormedTokenResponse(session, 'auth.code2Session');
+    return session;
   }
 
   async refreshToken(refreshToken: string): Promise<RefreshTokenData> {
@@ -140,11 +178,13 @@ export class AuthModule {
       );
     }
     const route = getRouteMeta('authRefresh');
-    return this.http.request<RefreshTokenData>({
+    const result = await this.http.request<RefreshTokenData>({
       method: route.method,
       path: route.path,
       authScheme: route.authScheme,
       body: {refreshToken},
     });
+    assertWellFormedTokenResponse(result, 'auth.refreshToken');
+    return result;
   }
 }

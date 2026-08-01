@@ -57,7 +57,12 @@ public final class QdmpTransport {
     if (parsed == null) {
       throw new IllegalArgumentException("invalid baseUrl: " + baseUrl);
     }
-    this.httpClient = httpClient;
+    // Force-disable redirect-following on whatever client we were handed, rather than trusting the
+    // caller to have configured it safely: this SDK carries secret credentials as request headers,
+    // and this constructor is reachable directly (it is public only because groups/auth live in
+    // separate packages), so it must not rely on QdmpClient being the only caller.
+    this.httpClient =
+        httpClient.newBuilder().followRedirects(false).followSslRedirects(false).build();
     this.baseUrl = parsed;
     this.qdmpVersion = qdmpVersion;
     this.appId = appId;
@@ -156,6 +161,19 @@ public final class QdmpTransport {
 
   private <T> T execute(Request request, Class<T> dataType) {
     try (Response response = httpClient.newCall(request).execute()) {
+      if (response.code() >= 300 && response.code() < 400) {
+        // Never follow a redirect: this SDK carries secret credentials (access-token /
+        // x-openapi-access-token) as request headers, and a redirect could point at an
+        // attacker-controlled host that would then receive them. Surface as a transport
+        // failure instead -- the message intentionally omits headers/URLs that could carry
+        // the access token.
+        throw new QdmpTransportException(
+            "qdmp request received an HTTP "
+                + response.code()
+                + " redirect response, which the"
+                + " SDK refuses to follow to avoid leaking credentials to an unverified"
+                + " destination");
+      }
       String bodyString = readBody(response);
       JsonNode root = bodyString.isEmpty() ? JSON.createObjectNode() : JSON.readTree(bodyString);
       JsonNode codeNode = root.get("code");

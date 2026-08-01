@@ -11,7 +11,7 @@
  */
 import type {Dispatcher} from 'undici';
 
-import {QdmpApiError} from './errors.js';
+import {QdmpApiError, QdmpTransportError} from './errors.js';
 import type {QdmpAuthScheme, QdmpHttpMethod} from './generated/route-meta.js';
 
 export interface HttpClientConfig {
@@ -123,9 +123,29 @@ export class HttpClient {
       body:
         options.body !== undefined ? JSON.stringify(options.body) : undefined,
       dispatcher: this.dispatcher,
+      // Never auto-follow redirects: a 3xx response is returned to us as-is
+      // instead of fetch silently re-issuing the request (potentially with
+      // our access-token / app-secret headers) against a different origin.
+      redirect: 'manual',
     });
 
     const httpStatus = response.status;
+    if (httpStatus >= 300 && httpStatus < 400) {
+      // Never surface anything derived from the response (e.g. the
+      // Location header) in this error: the redirect target is
+      // attacker-influenced and could reflect request data — including a
+      // token — back into a header value that would otherwise end up in
+      // this error's message/logs.
+      try {
+        await response.body?.cancel();
+      } catch {
+        // best-effort connection cleanup; must not mask the redirect error
+      }
+      throw new QdmpTransportError(
+        `received an unexpected HTTP ${httpStatus} redirect response`,
+        {httpStatus},
+      );
+    }
     let payload: unknown;
     try {
       payload = await response.json();

@@ -72,6 +72,22 @@ class QdmpAuthGetAccessTokenTest {
   }
 
   @Test
+  void emptyAccessToken_isRejected_andNeverCached() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"requestId\":\"req-1\","
+                    + "\"data\":{\"accessToken\":\"\",\"expiresAt\":\"1900000000\"}}"));
+    RecordingTokenStore tokenStore = new RecordingTokenStore();
+    QdmpClient client = TestClients.create(server, tokenStore);
+
+    assertThatThrownBy(() -> client.auth().getAccessToken())
+        .isInstanceOf(QdmpTransportException.class);
+    assertThat(tokenStore.getSetCallCount()).isZero();
+  }
+
+  @Test
   void numericZeroCode_isTreatedAsSuccessJustLikeStringZero() throws Exception {
     server.enqueue(
         new MockResponse()

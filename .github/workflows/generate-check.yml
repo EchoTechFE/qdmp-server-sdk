@@ -8,19 +8,7 @@ name: Generate Check
 on:
   push:
     branches: [main]
-    paths:
-      - "shared/**"
-      - "node/scripts/gen-route-meta.mjs"
-      - "java/scripts/gen-route-meta.mjs"
-      - "go/generated/oapi-codegen-config.yaml"
-      - ".github/workflows/generate-check.yml"
-  pull_request:
-    paths:
-      - "shared/**"
-      - "node/scripts/gen-route-meta.mjs"
-      - "java/scripts/gen-route-meta.mjs"
-      - "go/generated/oapi-codegen-config.yaml"
-      - ".github/workflows/generate-check.yml"
+  pull_request: {}
 
 jobs:
   generate-check:
