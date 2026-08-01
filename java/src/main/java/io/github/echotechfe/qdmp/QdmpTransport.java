@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.echotechfe.qdmp.errors.QdmpApiError;
 import io.github.echotechfe.qdmp.errors.QdmpTransportException;
 import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import okhttp3.HttpUrl;
@@ -15,6 +17,8 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.BufferedSource;
 
 /**
  * Internal HTTP transport shared by {@link io.github.echotechfe.qdmp.auth.QdmpAuth} and every
@@ -32,6 +36,10 @@ import okhttp3.ResponseBody;
 public final class QdmpTransport {
 
   private static final MediaType JSON_MEDIA_TYPE = MediaType.get("application/json; charset=utf-8");
+
+  // A malicious or malfunctioning endpoint could otherwise return an arbitrarily large response
+  // body, which readBody would buffer entirely into memory before even attempting to parse it.
+  private static final long MAX_RESPONSE_BODY_BYTES = 10L * 1024 * 1024;
 
   // Generated response models have no @JsonIgnoreProperties and openapi.yaml itself flags several
   // `data` schemas as inferred/unverified -- the server is free to add fields we didn't predict.
@@ -56,6 +64,19 @@ public final class QdmpTransport {
     HttpUrl parsed = HttpUrl.parse(baseUrl);
     if (parsed == null) {
       throw new IllegalArgumentException("invalid baseUrl: " + baseUrl);
+    }
+    // QdmpClientConfig.Builder#build() rejects an http:// baseUrl unless the host is
+    // loopback/localhost, but that check only runs if the caller goes through QdmpClientConfig.
+    // This constructor is public (only because groups/auth live in separate packages from this
+    // class) and is reachable directly, so a caller bypassing QdmpClientConfig entirely could
+    // otherwise construct a transport pointed at an http:// host and send appSecret/access-token
+    // headers in plaintext. Re-run the identical check here, sharing QdmpClientConfig's loopback
+    // literal check, for the same defense-in-depth reason the followRedirects(false) call below
+    // does not rely on QdmpClient being the only caller.
+    if ("http".equalsIgnoreCase(parsed.scheme())
+        && !QdmpClientConfig.isLoopbackOrLocalhost(parsed.host())) {
+      throw new IllegalArgumentException(
+          "baseUrl must use https:// unless the host is loopback/localhost, got: " + baseUrl);
     }
     // Force-disable redirect-following on whatever client we were handed, rather than trusting the
     // caller to have configured it safely: this SDK carries secret credentials as request headers,
@@ -130,10 +151,12 @@ public final class QdmpTransport {
   private void applyAuthHeaders(Request.Builder builder, AuthScheme scheme, String accessToken) {
     switch (scheme) {
       case STANDARD:
+        requireHeaderSafeToken(accessToken);
         builder.header("access-token", accessToken);
         builder.header("x-echo-qdmp-version", qdmpVersion);
         break;
       case GENAI:
+        requireHeaderSafeToken(accessToken);
         builder.header("x-openapi-access-token", accessToken);
         builder.header("x-openapi-app-id", appId);
         break;
@@ -141,6 +164,20 @@ public final class QdmpTransport {
       default:
         break;
     }
+  }
+
+  // QdmpTransport is public (only because groups/auth live in separate packages from this class),
+  // so it is reachable directly by a caller that bypasses QdmpContext's validation entirely and
+  // passes a bare String accessToken straight to get/post. Without this check, such a caller could
+  // push a token containing e.g. an embedded newline straight into OkHttp's Request.Builder#header
+  // call: OkHttp's own header validation would then reject it, but -- since neither
+  // "access-token" nor "x-openapi-access-token" are on OkHttp's hardcoded redaction list
+  // (Authorization/Cookie/Proxy-Authorization/Set-Cookie) -- it echoes the entire raw (invalid)
+  // header value, including the token, into the thrown IllegalArgumentException's message. Running
+  // the same whitelist QdmpContext#of already enforces before ever calling builder.header(...)
+  // means that OkHttp code path -- and its token-leaking exception message -- is never reached.
+  private static void requireHeaderSafeToken(String accessToken) {
+    QdmpContext.requireHeaderSafe(accessToken);
   }
 
   private void addQueryParams(HttpUrl.Builder urlBuilder, Map<String, Object> query) {
@@ -196,6 +233,23 @@ public final class QdmpTransport {
 
   private String readBody(Response response) throws IOException {
     ResponseBody body = response.body();
-    return body == null ? "" : body.string();
+    if (body == null) {
+      return "";
+    }
+    BufferedSource source = body.source();
+    // Reads at most MAX_RESPONSE_BODY_BYTES + 1 bytes from the underlying connection -- enough to
+    // detect an oversized body without ever buffering the rest of it into memory.
+    source.request(MAX_RESPONSE_BODY_BYTES + 1);
+    Buffer buffer = source.buffer();
+    if (buffer.size() > MAX_RESPONSE_BODY_BYTES) {
+      throw new QdmpTransportException(
+          "qdmp response body exceeded the maximum allowed size of "
+              + MAX_RESPONSE_BODY_BYTES
+              + " bytes; refusing to buffer it into memory");
+    }
+    MediaType contentType = body.contentType();
+    Charset charset =
+        contentType == null ? StandardCharsets.UTF_8 : contentType.charset(StandardCharsets.UTF_8);
+    return buffer.readString(charset);
   }
 }

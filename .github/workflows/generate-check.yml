@@ -34,11 +34,6 @@ jobs:
         run: npm ci
         working-directory: node
 
-      - name: install oapi-codegen
-        run: |
-          go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
-          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-
       - name: regenerate everything from shared/openapi.yaml
         run: bash shared/scripts/regenerate-all.sh
 

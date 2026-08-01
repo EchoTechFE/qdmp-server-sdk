@@ -7,8 +7,8 @@
 - Node.js ≥ 22
 - JDK ≥ 17（CI 用 temurin 17）
 - Go（版本见 `go/go.mod`）
-- [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen)：`go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest`，装完确保 `$(go env GOPATH)/bin` 在 `PATH` 上
-- `openapi-generator-cli`（Java model 生成用）：`shared/scripts/regenerate-all.sh` 会在 `OPENAPI_GENERATOR_CLI_JAR` 未指向已存在的 jar 时自动下载到 `/tmp/tools/openapi-generator-cli.jar`，无需手动安装
+- [`oapi-codegen`](https://github.com/oapi-codegen/oapi-codegen)：无需手动安装，`shared/scripts/regenerate-all.sh` 通过 `go run .../oapi-codegen@v2.8.0` 按固定版本直接调用，Go 工具链会对该 module 做 sum.golang.org 校验
+- `openapi-generator-cli`（Java model 生成用）：`shared/scripts/regenerate-all.sh` 会在 `OPENAPI_GENERATOR_CLI_JAR` 未指向已存在的 jar 时自动下载到本地缓存并校验 SHA-256，无需手动安装；若校验失败会重新下载一次，仍失败则直接报错退出
 
 ## 代码生成
 

@@ -1,6 +1,7 @@
 import type {Dispatcher} from 'undici';
 
 import {AuthModule} from './auth.js';
+import {QdmpValidationError} from './errors.js';
 import {GenaiGroup} from './groups/genai.js';
 import {IslandGroup} from './groups/island.js';
 import {MarkGroup} from './groups/mark.js';
@@ -13,6 +14,64 @@ import {InMemoryTokenStore, type TokenStore} from './token-store.js';
 
 /** The qdmp OpenAPI host (see shared/openapi.yaml `servers[0]`). */
 const DEFAULT_BASE_URL = 'https://openapi.qiandao.com';
+
+/** Matches a dotted-decimal IPv4 literal: exactly four groups of 1-3 digits
+ * separated by dots. This only tests the string SHAPE — range-checking each
+ * octet (0-255) and confirming the first octet is `127` is done separately
+ * in `isLoopbackHost()`. Intentionally does not accept anything else (no
+ * hex/octal forms, no hostnames) — a hostname like `127.attacker.com` must
+ * NOT match this, since its second "octet" is not a pure decimal string. */
+const IPV4_LITERAL_PATTERN = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
+
+/** True if `hostname` is a syntactically valid dotted-decimal IPv4 literal
+ * (all four octets in 0-255) whose first octet is exactly 127 — i.e. a
+ * genuine loopback IP address, not merely a string that starts with the
+ * text "127.". Deliberately does NOT perform any DNS resolution: this must
+ * stay a pure string/literal check, since resolving the hostname here would
+ * make the safety decision depend on network state instead of the literal
+ * the caller wrote. */
+function isLoopbackIpv4Literal(hostname: string): boolean {
+  const match = IPV4_LITERAL_PATTERN.exec(hostname);
+  if (!match) {
+    return false;
+  }
+  const octets = match.slice(1, 5).map(Number);
+  if (!octets.every(octet => octet >= 0 && octet <= 255)) {
+    return false;
+  }
+  return octets[0] === 127;
+}
+
+/** Loopback/localhost hosts (case-insensitive) that are allowed to use
+ * plain http:// — e.g. a local dev/mock backend. Anything else on http://
+ * would send appId/appSecret/accessToken in the clear.
+ *
+ * Must reject anything that is merely a string starting with "127." but is
+ * not itself a genuine IPv4 literal — e.g. the hostname `127.attacker.com`
+ * is a DNS name (not an IP) that can resolve to any attacker-controlled
+ * remote host, and must NOT be treated as loopback. */
+function isLoopbackHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === 'localhost' || isLoopbackIpv4Literal(host);
+}
+
+/** Fail fast at construction time — never wait for the first real network
+ * request — if baseUrl is http:// against a non-loopback host. */
+function assertSafeBaseUrl(baseUrl: string): void {
+  let parsed: URL;
+  try {
+    parsed = new URL(baseUrl);
+  } catch {
+    throw new QdmpValidationError(
+      `QdmpClient: options.baseUrl "${baseUrl}" is not a valid URL`,
+    );
+  }
+  if (parsed.protocol === 'http:' && !isLoopbackHost(parsed.hostname)) {
+    throw new QdmpValidationError(
+      `QdmpClient: options.baseUrl "${baseUrl}" uses plain http:// against a non-loopback host; use https:// (loopback/localhost is exempt for local dev/test)`,
+    );
+  }
+}
 
 export interface QdmpClientOptions {
   appId: string;
@@ -40,6 +99,7 @@ export class QdmpClient {
 
   constructor(options: QdmpClientOptions) {
     const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
+    assertSafeBaseUrl(baseUrl);
     const qdmpVersion = options.qdmpVersion ?? '1.0';
     const http = new HttpClient({baseUrl, dispatcher: options.dispatcher});
 

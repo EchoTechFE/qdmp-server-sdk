@@ -9,8 +9,6 @@ import io.github.echotechfe.qdmp.QdmpClient;
 import io.github.echotechfe.qdmp.errors.QdmpApiError;
 import io.github.echotechfe.qdmp.errors.QdmpTransportException;
 import io.github.echotechfe.qdmp.errors.QdmpValidationError;
-import io.github.echotechfe.qdmp.generated.AuthRefresh200ResponseAllOfData;
-import io.github.echotechfe.qdmp.generated.AuthToken200ResponseAllOfData;
 import io.github.echotechfe.qdmp.testsupport.TestClients;
 import java.io.IOException;
 import okhttp3.mockwebserver.MockResponse;
@@ -54,10 +52,10 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"refreshToken\":\"user-refresh-token\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    AuthToken200ResponseAllOfData session = client.auth().code2Session("wx-login-code-abc");
+    Code2SessionResult session = client.auth().code2Session("wx-login-code-abc");
 
     assertThat(session.getAccessToken()).isEqualTo("user-access-token");
-    assertThat(session.getExpiresAt()).isEqualTo("1900000000");
+    assertThat(session.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
     assertThat(session.getRefreshToken()).isEqualTo("user-refresh-token");
     assertThat(session.getOpenId()).isEqualTo("open-id-1");
     RecordedRequest request = server.takeRequest();
@@ -84,8 +82,8 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"openId\":\"o-2\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    AuthToken200ResponseAllOfData first = client.auth().code2Session("code-1");
-    AuthToken200ResponseAllOfData second = client.auth().code2Session("code-2");
+    Code2SessionResult first = client.auth().code2Session("code-1");
+    Code2SessionResult second = client.auth().code2Session("code-2");
 
     assertThat(first.getAccessToken()).isEqualTo("tok-1");
     assertThat(second.getAccessToken()).isEqualTo("tok-2");
@@ -113,7 +111,7 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"expiresAt\":\"1900000000\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    AuthRefresh200ResponseAllOfData result = client.auth().refreshToken("some-refresh-token");
+    RefreshTokenResult result = client.auth().refreshToken("some-refresh-token");
 
     assertThat(result.getAccessToken()).isEqualTo("new-token");
     RecordedRequest request = server.takeRequest();
