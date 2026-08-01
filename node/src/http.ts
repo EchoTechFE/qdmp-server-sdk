@@ -19,6 +19,57 @@ export interface HttpClientConfig {
   dispatcher?: Dispatcher;
 }
 
+/** Upper bound on how many response body bytes we'll read before giving up.
+ * The qdmp OpenAPI response is a business JSON envelope, not a bulk data
+ * transfer — an oversized body (whether from a misbehaving server or a
+ * malicious intermediary) should never be fully buffered into memory just to
+ * find out it doesn't fit. Content-Length can't be trusted for this (it may
+ * be absent, or simply wrong), so the actual bytes read off the stream are
+ * counted as they arrive. */
+const MAX_RESPONSE_BODY_BYTES = 10 * 1024 * 1024;
+
+/** Reads `response.body` chunk-by-chunk, counting bytes as they arrive so a
+ * body exceeding MAX_RESPONSE_BODY_BYTES is rejected — and the underlying
+ * stream cancelled — well before it would ever be handed to JSON.parse(). */
+async function readBoundedJsonBody(
+  response: Response,
+  httpStatus: number,
+): Promise<unknown> {
+  const body = response.body;
+  if (!body) {
+    // No body stream (e.g. some 204-like responses); treat as empty.
+    return JSON.parse('');
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+  for (;;) {
+    const {done, value} = await reader.read();
+    if (done) {
+      break;
+    }
+    totalBytes += value.byteLength;
+    if (totalBytes > MAX_RESPONSE_BODY_BYTES) {
+      await reader.cancel().catch(() => {
+        // best-effort connection cleanup; must not mask the size error
+      });
+      throw new QdmpTransportError(
+        `response body exceeded the maximum allowed size of ${MAX_RESPONSE_BODY_BYTES} bytes`,
+        {httpStatus},
+      );
+    }
+    chunks.push(value);
+  }
+  const combined = new Uint8Array(totalBytes);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  const text = new TextDecoder('utf-8').decode(combined);
+  return JSON.parse(text);
+}
+
 export type QueryValue = string | number | boolean | string[] | undefined;
 
 export interface HttpRequestOptions {
@@ -87,14 +138,29 @@ function parseEnvelope<T>(payload: unknown, httpStatus: number): T {
     });
   }
   const body = payload as Record<string, unknown>;
-  const code = body.code as string | number | undefined;
-  if (code === undefined) {
+  const rawCode: unknown = body.code;
+  if (rawCode === undefined) {
     throw new QdmpApiError({
       code: 'QDMP_SDK_INVALID_RESPONSE_SHAPE',
       message: 'response body is missing the "code" field',
       httpStatus,
     });
   }
+  // `body.code` was previously narrowed with `as string | number` — a type
+  // assertion, not a runtime check. A server (or compromised intermediary)
+  // returning e.g. an array/object for "code" would sail through that
+  // assertion, bypass QdmpApiError's string-only sanitization (which only
+  // triggers for typeof === 'string'), and have its unbounded
+  // Array.prototype.toString()/Object.prototype.toString() output
+  // interpolated straight into the thrown error's message/.code/.toJSON().
+  if (typeof rawCode !== 'string' && typeof rawCode !== 'number') {
+    throw new QdmpApiError({
+      code: 'QDMP_SDK_INVALID_RESPONSE_SHAPE',
+      message: 'response body\'s "code" field is neither a string nor a number',
+      httpStatus,
+    });
+  }
+  const code = rawCode;
   const message = typeof body.message === 'string' ? body.message : '';
   if (String(code) !== '0') {
     const requestId =
@@ -148,8 +214,11 @@ export class HttpClient {
     }
     let payload: unknown;
     try {
-      payload = await response.json();
-    } catch {
+      payload = await readBoundedJsonBody(response, httpStatus);
+    } catch (err) {
+      if (err instanceof QdmpTransportError) {
+        throw err;
+      }
       throw new QdmpApiError({
         code: 'QDMP_SDK_INVALID_JSON_RESPONSE',
         message: 'response body could not be parsed as JSON',

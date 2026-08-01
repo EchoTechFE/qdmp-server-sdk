@@ -51,7 +51,7 @@ QdmpClient qdmp = new QdmpClient(
         .build());
 
 // 用 code 换用户 session（SDK 不缓存，自行持久化）
-AuthToken200ResponseAllOfData session = qdmp.auth().code2Session(code);
+Code2SessionResult session = qdmp.auth().code2Session(code);
 
 // QdmpContext.of(accessToken) 是唯一入口，空/非法 token 在构造期就失败
 QdmpContext ctx = QdmpContext.of(session.getAccessToken());

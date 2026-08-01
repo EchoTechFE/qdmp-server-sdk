@@ -89,31 +89,35 @@ public final class QdmpAuth {
               request,
               AuthToken200ResponseAllOfData.class);
       CachedAppToken fresh = toCachedAppToken(data);
+      // A non-negative but already-past (or about-to-expire) expiresAt passes
+      // toCachedAppToken/parseExpiresAt's numeric validation, but a token that is already stale
+      // the moment it arrives must never be cached or handed back as if it were usable -- apply
+      // the exact same freshness bar used to decide whether a *cached* token still needs
+      // refreshing.
+      if (!hasSufficientTimeRemaining(fresh)) {
+        throw new QdmpTransportException(
+            "qdmp POST /auth/v1/token returned an access token that is already expired or too"
+                + " close to expiry (expiresAt=\""
+                + data.getExpiresAt()
+                + "\"); refusing to cache or return it");
+      }
       tokenStore.set(fresh);
       return fresh.getAccessToken();
     }
   }
 
   // The server reported code:"0" (success), but the SDK still has to guard against a
-  // structurally malformed body: a null/empty `accessToken` or a non-numeric `expiresAt` would
-  // otherwise surface as a bare NullPointerException/NumberFormatException instead of one of the
-  // SDK's typed exceptions, or worse -- silently cache/return an empty access token.
+  // structurally malformed body: a null/empty `accessToken` or a non-numeric/negative `expiresAt`
+  // would otherwise surface as a bare NullPointerException/NumberFormatException instead of one of
+  // the SDK's typed exceptions, or worse -- silently cache/return an empty or negative-lifetime
+  // access token.
   private static CachedAppToken toCachedAppToken(AuthToken200ResponseAllOfData data) {
     requireNonMalformed(
         data == null,
         data == null ? null : data.getAccessToken(),
         data == null ? null : data.getExpiresAt(),
         "POST /auth/v1/token");
-    long expiresAtEpochSeconds;
-    try {
-      expiresAtEpochSeconds = Long.parseLong(data.getExpiresAt());
-    } catch (NumberFormatException e) {
-      throw new QdmpTransportException(
-          "qdmp POST /auth/v1/token returned a non-numeric expiresAt: \""
-              + data.getExpiresAt()
-              + "\"",
-          e);
-    }
+    long expiresAtEpochSeconds = parseExpiresAt(data.getExpiresAt(), "POST /auth/v1/token");
     return new CachedAppToken(data.getAccessToken(), expiresAtEpochSeconds);
   }
 
@@ -126,7 +130,7 @@ public final class QdmpAuth {
    * @return the full session: access token, refresh token, expiry, and open ID
    * @throws QdmpValidationError if {@code code} is {@code null} or empty
    */
-  public AuthToken200ResponseAllOfData code2Session(String code) {
+  public Code2SessionResult code2Session(String code) {
     if (code == null || code.isEmpty()) {
       throw new QdmpValidationError(
           "code2Session: \"code\" is required for grantType=AUTHORIZATION_CODE and must be a"
@@ -150,7 +154,12 @@ public final class QdmpAuth {
         data == null ? null : data.getAccessToken(),
         data == null ? null : data.getExpiresAt(),
         "POST /auth/v1/token");
-    return data;
+    long expiresAtEpochSeconds = parseExpiresAt(data.getExpiresAt(), "POST /auth/v1/token");
+    requireNonEmptyField(data.getRefreshToken(), "refreshToken", "POST /auth/v1/token");
+    requireNonEmptyField(data.getOpenId(), "openId", "POST /auth/v1/token");
+    requireNotAlreadyExpired(expiresAtEpochSeconds, "POST /auth/v1/token");
+    return new Code2SessionResult(
+        data.getAccessToken(), data.getRefreshToken(), expiresAtEpochSeconds, data.getOpenId());
   }
 
   /**
@@ -161,7 +170,7 @@ public final class QdmpAuth {
    * @return the new access token and its expiry
    * @throws QdmpValidationError if {@code refreshToken} is {@code null} or empty
    */
-  public AuthRefresh200ResponseAllOfData refreshToken(String refreshToken) {
+  public RefreshTokenResult refreshToken(String refreshToken) {
     if (refreshToken == null || refreshToken.isEmpty()) {
       throw new QdmpValidationError(
           "refreshToken: \"refreshToken\" is required and must be a non-empty string");
@@ -179,7 +188,9 @@ public final class QdmpAuth {
         data == null ? null : data.getAccessToken(),
         data == null ? null : data.getExpiresAt(),
         "POST /auth/v1/refresh");
-    return data;
+    long expiresAtEpochSeconds = parseExpiresAt(data.getExpiresAt(), "POST /auth/v1/refresh");
+    requireNotAlreadyExpired(expiresAtEpochSeconds, "POST /auth/v1/refresh");
+    return new RefreshTokenResult(data.getAccessToken(), expiresAtEpochSeconds);
   }
 
   // Shared guard for all three auth endpoints (CLIENT_CREDENTIALS/code2Session/refreshToken): the
@@ -198,6 +209,60 @@ public final class QdmpAuth {
               + routeDescription
               + " reported code=\"0\" (success) but returned a malformed body (missing"
               + " data/accessToken/expiresAt)");
+    }
+  }
+
+  // Shared numeric guard for all three auth endpoints: `expiresAt` must parse as a non-negative
+  // long. A non-numeric value would otherwise surface as a bare NumberFormatException, and a
+  // negative value -- while technically parseable -- describes an already-expired (or nonsensical)
+  // token and must never be cached/returned as if it were valid.
+  private static long parseExpiresAt(String expiresAt, String routeDescription) {
+    long parsed;
+    try {
+      parsed = Long.parseLong(expiresAt);
+    } catch (NumberFormatException e) {
+      throw new QdmpTransportException(
+          "qdmp " + routeDescription + " returned a non-numeric expiresAt: \"" + expiresAt + "\"",
+          e);
+    }
+    if (parsed < 0) {
+      throw new QdmpTransportException(
+          "qdmp " + routeDescription + " returned a negative expiresAt: \"" + expiresAt + "\"");
+    }
+    return parsed;
+  }
+
+  // code2Session's Javadoc promises "the full session: access token, refresh token, expiry, and
+  // open ID" -- unlike accessToken/expiresAt (checked by requireNonMalformed), refreshToken/openId
+  // were never validated at all, so a response missing either field would silently hand back a
+  // session object with a null/empty refresh token or open ID.
+  private static void requireNonEmptyField(
+      String value, String fieldName, String routeDescription) {
+    if (value == null || value.isEmpty()) {
+      throw new QdmpTransportException(
+          "qdmp "
+              + routeDescription
+              + " reported code=\"0\" (success) but returned a malformed body (missing/empty "
+              + fieldName
+              + ")");
+    }
+  }
+
+  // code2Session/refreshToken are one-shot exchanges the SDK never caches (unlike the app-level
+  // CLIENT_CREDENTIALS path, guarded by hasSufficientTimeRemaining's stricter
+  // REFRESH_BUFFER_SECONDS
+  // buffer), so there is no cache-freshness policy to apply here -- but a non-negative expiresAt
+  // can
+  // still already be in the past (e.g. "1", 1970-01-01; parseExpiresAt only rejects negative/
+  // non-numeric values). Handing back a session/token that is already dead on arrival would let a
+  // caller persist (or start relying on) a permanently-broken session.
+  private void requireNotAlreadyExpired(long expiresAtEpochSeconds, String routeDescription) {
+    if (expiresAtEpochSeconds <= clock.instant().getEpochSecond()) {
+      throw new QdmpTransportException(
+          "qdmp "
+              + routeDescription
+              + " returned an already-expired expiresAt: "
+              + expiresAtEpochSeconds);
     }
   }
 

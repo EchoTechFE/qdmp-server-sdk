@@ -14,6 +14,40 @@
 
 export type QdmpErrorCode = string | number;
 
+/** Upper bound on how much of a server-supplied string is echoed into an
+ * Error's message — a server (or a compromised intermediary) must never be
+ * able to force an unbounded string into our caller's memory/logs via
+ * Error.message. */
+const MAX_SANITIZED_MESSAGE_LENGTH = 500;
+
+/** Matches the first C0 control character (0x00-0x1F) or DEL (0x7F) in a
+ * string — most notably CR and LF. */
+const CONTROL_CHAR_PATTERN = new RegExp(
+  '[' +
+    String.fromCharCode(...Array.from({length: 32}, (_, i) => i)) +
+    String.fromCharCode(127) +
+    ']',
+);
+
+/** Sanitizes a server-supplied string before it is ever interpolated into an
+ * Error's message. A malicious/compromised server could embed CR/LF into
+ * `message` to forge fake extra log lines once a caller writes
+ * error.message to a single-line log (log injection). Replacing the control
+ * character in place would still leave every byte the attacker chose intact
+ * and visible right next to it, so instead this truncates the string at the
+ * first control character — nothing the attacker placed after an injected
+ * CR/LF is ever included, forged log line or not. Also enforces a hard
+ * length cap so an arbitrarily long message can't bloat/DoS a caller's
+ * memory or logs. */
+function sanitizeForErrorMessage(value: string): string {
+  const controlCharIndex = value.search(CONTROL_CHAR_PATTERN);
+  const withoutControlChars =
+    controlCharIndex === -1 ? value : value.slice(0, controlCharIndex);
+  return withoutControlChars.length > MAX_SANITIZED_MESSAGE_LENGTH
+    ? withoutControlChars.slice(0, MAX_SANITIZED_MESSAGE_LENGTH) + '…'
+    : withoutControlChars;
+}
+
 export interface QdmpApiErrorInit {
   code: QdmpErrorCode;
   message: string;
@@ -30,13 +64,31 @@ export class QdmpApiError extends Error {
   readonly requestId?: string;
 
   constructor(init: QdmpApiErrorInit) {
+    // `code` is an intentionally open `string | number` union (see file
+    // header) — when it's a string, it is just as server-controlled as
+    // `message` and must go through the same sanitization before being
+    // interpolated into this Error's message. A numeric `code` can't carry
+    // CR/LF or excessive length, so it's used as-is.
+    const sanitizedCode =
+      typeof init.code === 'string'
+        ? sanitizeForErrorMessage(init.code)
+        : init.code;
     super(
-      `qdmp API error (code=${init.code}, httpStatus=${init.httpStatus}): ${init.message}`,
+      `qdmp API error (code=${sanitizedCode}, httpStatus=${init.httpStatus}): ${sanitizeForErrorMessage(init.message)}`,
     );
     this.name = 'QdmpApiError';
-    this.code = init.code;
+    // Store the same sanitized value used above for the message, not the
+    // raw init.code — this.code and toJSON().code are public surfaces a
+    // caller may log/serialize directly, bypassing .message entirely.
+    this.code = sanitizedCode;
     this.httpStatus = init.httpStatus;
-    this.requestId = init.requestId;
+    // requestId is just as server-controlled as message/code — sanitize it
+    // too, since callers may log it directly (or via toJSON()) without ever
+    // going through Error.message.
+    this.requestId =
+      init.requestId !== undefined
+        ? sanitizeForErrorMessage(init.requestId)
+        : undefined;
     // Restore the prototype chain — needed because targets below ES2015
     // (and some transpilers) don't do this automatically when extending
     // built-ins like Error.

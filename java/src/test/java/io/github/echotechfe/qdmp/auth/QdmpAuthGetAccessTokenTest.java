@@ -295,6 +295,31 @@ class QdmpAuthGetAccessTokenTest {
         .isNotInstanceOf(NumberFormatException.class);
   }
 
+  /**
+   * A fresh {@code POST /auth/v1/token} response with code:"0" (success) but an {@code expiresAt}
+   * that is already in the past (here, 1 second past the Unix epoch -- non-negative, so {@link
+   * QdmpAuth}'s existing negative-expiresAt guard does not catch it) must not be cached/returned as
+   * if it were a usable token: with {@code REFRESH_BUFFER_SECONDS=300}, any real clock reports zero
+   * (in fact deeply negative) time remaining before expiry. The freshly-fetched token is never
+   * checked against that same freshness requirement before being cached, so today it is persisted
+   * into the {@link TokenStore} and handed back to the caller as if valid.
+   */
+  @Test
+  void freshResponse_withAlreadyExpiredExpiresAt_isRejected_andNeverCached() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":"
+                    + "{\"accessToken\":\"stale-token\",\"expiresAt\":\"1\"}}"));
+    RecordingTokenStore tokenStore = new RecordingTokenStore();
+    QdmpClient client = TestClients.create(server, tokenStore);
+
+    assertThatThrownBy(() -> client.auth().getAccessToken())
+        .isInstanceOf(QdmpTransportException.class);
+    assertThat(tokenStore.getSetCallCount()).isZero();
+  }
+
   @Test
   void failure_doesNotLeakAppSecretInExceptionMessageOrToString() {
     String secretAppSecret = "S3cr3t-App-Secret-Must-Not-Leak";

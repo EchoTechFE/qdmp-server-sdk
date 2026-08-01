@@ -17,6 +17,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -47,7 +48,11 @@ func TestAuthGetAccessToken_Success(t *testing.T) {
 			"accessToken": "app-level-access-token",
 			// expiresAt is deliberately a *string* on the wire — this is a
 			// real, confirmed fact (see shared/openapi.yaml), not a guess.
-			"expiresAt": "1785508950",
+			// Computed relative to time.Now() (rather than a hardcoded
+			// absolute timestamp) so this test keeps exercising "a genuinely
+			// fresh token" indefinitely, instead of silently starting to
+			// fail once real wall-clock time catches up to a fixed constant.
+			"expiresAt": strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10),
 		})
 	})
 	srv := startServer(t, counter)
@@ -142,6 +147,12 @@ func TestAuthGetAccessToken_ConcurrentSingleFlight(t *testing.T) {
 // are strings, and a naive numeric-conversion implementation would corrupt
 // this value silently.
 func TestAuthCode2Session_Success(t *testing.T) {
+	// Computed relative to time.Now() (rather than a hardcoded absolute
+	// timestamp) so this test keeps exercising "a genuinely fresh session"
+	// indefinitely, instead of silently starting to fail once real
+	// wall-clock time catches up to a fixed constant (as happened once
+	// already with a previous hardcoded value here).
+	wantExpiresAt := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		var body map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -156,7 +167,7 @@ func TestAuthCode2Session_Success(t *testing.T) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-2", map[string]any{
 			"accessToken":  "user-level-access-token",
 			"refreshToken": "user-level-refresh-token",
-			"expiresAt":    "1785508950",
+			"expiresAt":    wantExpiresAt,
 			"openId":       "user-openid-1",
 		})
 	})
@@ -173,8 +184,8 @@ func TestAuthCode2Session_Success(t *testing.T) {
 	if sess.RefreshToken != "user-level-refresh-token" {
 		t.Fatalf("RefreshToken = %q", sess.RefreshToken)
 	}
-	if sess.ExpiresAt != "1785508950" {
-		t.Fatalf("ExpiresAt = %q, want the exact wire string %q (must not be converted to a number)", sess.ExpiresAt, "1785508950")
+	if sess.ExpiresAt != wantExpiresAt {
+		t.Fatalf("ExpiresAt = %q, want the exact wire string %q (must not be converted to a number)", sess.ExpiresAt, wantExpiresAt)
 	}
 	if sess.OpenID != "user-openid-1" {
 		t.Fatalf("OpenID = %q", sess.OpenID)
@@ -317,6 +328,9 @@ func TestAuthGetAccessToken_CachedOutsideBuffer(t *testing.T) {
 // TestAuthRefreshToken_HTTP200BusinessFailure above (which only covers the
 // failure path).
 func TestAuthRefreshToken_Success(t *testing.T) {
+	// See TestAuthCode2Session_Success for why this is computed relative to
+	// time.Now() instead of a hardcoded absolute timestamp.
+	wantExpiresAt := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/auth/v1/refresh" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -330,7 +344,7 @@ func TestAuthRefreshToken_Success(t *testing.T) {
 		}
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-refresh-1", map[string]any{
 			"accessToken": "renewed-access-token",
-			"expiresAt":   "1785508950",
+			"expiresAt":   wantExpiresAt,
 		})
 	})
 	srv := startServer(t, counter)
@@ -343,8 +357,8 @@ func TestAuthRefreshToken_Success(t *testing.T) {
 	if result.AccessToken != "renewed-access-token" {
 		t.Fatalf("AccessToken = %q, want %q", result.AccessToken, "renewed-access-token")
 	}
-	if result.ExpiresAt != "1785508950" {
-		t.Fatalf("ExpiresAt = %q, want the exact wire string %q", result.ExpiresAt, "1785508950")
+	if result.ExpiresAt != wantExpiresAt {
+		t.Fatalf("ExpiresAt = %q, want the exact wire string %q", result.ExpiresAt, wantExpiresAt)
 	}
 	if counter.Count() != 1 {
 		t.Fatalf("server hit %d times, want 1", counter.Count())

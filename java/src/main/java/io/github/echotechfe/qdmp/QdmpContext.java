@@ -36,19 +36,22 @@ public final class QdmpContext {
     return new QdmpContext(accessToken);
   }
 
-  // Rejects control characters and anything outside ISO-8859-1 before the token ever reaches
-  // QdmpTransport's OkHttp Request.Builder#header calls. Without this gate, a token with e.g. an
-  // embedded newline or a non-Latin1 character would be rejected by OkHttp's own header
-  // validation -- but OkHttp only redacts Authorization/Cookie/Proxy-Authorization/Set-Cookie in
-  // that exception's message, so "access-token"/"x-openapi-access-token" would otherwise have the
-  // full (invalid) token value echoed straight into the thrown IllegalArgumentException. The
-  // message below intentionally never includes the token itself.
-  private static void requireHeaderSafe(String accessToken) {
+  // Whitelists printable ASCII (0x20-0x7E) before the token ever reaches QdmpTransport's OkHttp
+  // Request.Builder#header calls, rejecting everything else -- including tab (0x09) and the whole
+  // Latin-1 Supplement range (0x80-0xFF, e.g. accented characters). A blacklist that only rejects
+  // control characters and non-Latin-1 code points is not strict enough: OkHttp's own header
+  // validation is stricter still (tab or 0x20-0x7E only), and for header names outside its
+  // hardcoded redaction list (Authorization/Cookie/Proxy-Authorization/Set-Cookie --
+  // "access-token"/"x-openapi-access-token" are not on it) it echoes the *entire* invalid header
+  // value into its thrown IllegalArgumentException message. Whitelisting here means that path is
+  // never reached. Package-private (not private) so QdmpTransport can reuse the exact same check
+  // for tokens passed directly to it, bypassing QdmpContext entirely. The message below
+  // intentionally never includes the token itself.
+  static void requireHeaderSafe(String accessToken) {
     for (int i = 0; i < accessToken.length(); i++) {
       char c = accessToken.charAt(i);
-      boolean isControlCharacter = c <= 0x1f || c == 0x7f;
-      boolean isOutsideLatin1 = c > 0xff;
-      if (isControlCharacter || isOutsideLatin1) {
+      boolean isPrintableAscii = c >= 0x20 && c <= 0x7e;
+      if (!isPrintableAscii) {
         throw new IllegalArgumentException(
             "accessToken contains a character that cannot be safely sent as an HTTP header value"
                 + " (this message intentionally omits the token itself)");

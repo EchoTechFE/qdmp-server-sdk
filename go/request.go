@@ -25,6 +25,11 @@ const (
 	authSchemeGenai    authScheme = "genai"
 )
 
+// maxResponseBodyBytes bounds how much of an HTTP response body doRequest
+// will ever read into memory, protecting against a misbehaving/compromised
+// gateway (or a man-in-the-middle) returning an arbitrarily large body.
+const maxResponseBodyBytes = 10 * 1024 * 1024 // 10MB
+
 // requestParams describes one outbound call to request(). It intentionally
 // has no notion of "token missing" handling: callers (the business group
 // methods) are responsible for the fail-fast-locally check before ever
@@ -127,9 +132,19 @@ func (c *Client) doRequest(ctx context.Context, p requestParams) (json.RawMessag
 		return nil, fmt.Errorf("qdmp: unexpected redirect response (http %d)", resp.StatusCode)
 	}
 
-	raw, err := io.ReadAll(resp.Body)
+	// Cap how much of the response body we will ever buffer: a misbehaving
+	// or compromised gateway (or a man-in-the-middle) returning an
+	// arbitrarily large body must not be able to exhaust memory before the
+	// SDK even attempts to JSON-decode it. Reading one byte past the limit
+	// lets us distinguish "exactly at the limit" from "over the limit"
+	// without buffering an unbounded amount either way.
+	limited := io.LimitReader(resp.Body, maxResponseBodyBytes+1)
+	raw, err := io.ReadAll(limited)
 	if err != nil {
 		return nil, fmt.Errorf("qdmp: failed to read response body (http status %d): %w", resp.StatusCode, err)
+	}
+	if len(raw) > maxResponseBodyBytes {
+		return nil, fmt.Errorf("qdmp: response body exceeds the maximum allowed size of %d bytes (http status %d)", maxResponseBodyBytes, resp.StatusCode)
 	}
 
 	var env rawEnvelope
@@ -144,9 +159,15 @@ func (c *Client) doRequest(ctx context.Context, p requestParams) (json.RawMessag
 
 	if code != "0" {
 		return nil, &QdmpApiError{
-			Code:       code,
-			Message:    env.Message,
-			RequestID:  env.RequestID,
+			// Sanitized here (not only in Error()) so a caller reading
+			// Code/Message/RequestID directly off the struct also never sees
+			// raw CR/LF or an unbounded server-supplied string. Code is a
+			// server-controlled open string (see normalizeCode and
+			// QdmpApiError's doc comment), so it needs exactly the same
+			// treatment as Message/RequestID.
+			Code:       sanitizeForErrorMessage(code),
+			Message:    sanitizeForErrorMessage(env.Message),
+			RequestID:  sanitizeForErrorMessage(env.RequestID),
 			HTTPStatus: resp.StatusCode,
 		}
 	}

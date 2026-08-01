@@ -2,7 +2,10 @@ package qdmp
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 )
 
@@ -89,6 +92,9 @@ func NewClient(opts ClientOptions) (*Client, error) {
 	if baseURL == "" {
 		baseURL = defaultBaseURL
 	}
+	if err := validateBaseURLScheme(baseURL); err != nil {
+		return nil, err
+	}
 	qdmpVersion := opts.QdmpVersion
 	if qdmpVersion == "" {
 		qdmpVersion = defaultQdmpVersion
@@ -130,6 +136,53 @@ func NewClient(opts ClientOptions) (*Client, error) {
 	}
 	c.Auth = &AuthService{client: c, store: store}
 	return c, nil
+}
+
+// validateBaseURLScheme rejects a plain-http BaseURL pointed at a
+// non-loopback host. appId/appSecret and access-token values are sent as
+// plain headers/body fields (see request.go doRequest), so a plain-http
+// BaseURL to a real host would expose them in the clear to anyone able to
+// observe the network path. http:// remains allowed for loopback/local
+// addresses (127.0.0.0/8, or "localhost", case-insensitive) since this
+// repository's own test suite points BaseURL at an httptest.Server, whose
+// .URL is exactly "http://127.0.0.1:PORT".
+func validateBaseURLScheme(baseURL string) error {
+	u, err := url.Parse(baseURL)
+	if err != nil {
+		return fmt.Errorf("qdmp: ClientOptions.BaseURL is not a valid URL: %w", err)
+	}
+	if u.Scheme != "http" {
+		return nil
+	}
+	if isLoopbackHost(u.Host) {
+		return nil
+	}
+	return fmt.Errorf("qdmp: ClientOptions.BaseURL %q uses a plain http:// scheme for a non-loopback host; use https:// to avoid sending appSecret/access-token in the clear", baseURL)
+}
+
+// isLoopbackHost reports whether host (as found in a url.URL.Host, which may
+// carry a ":port" suffix) refers to a loopback/local address: the exact
+// hostname "localhost" (case-insensitive), or a genuine loopback IP literal
+// (127.0.0.1, any other bare 127.x.x.x dotted-quad, or the IPv6 "::1").
+//
+// This deliberately does NOT do a string-prefix check like
+// strings.HasPrefix(h, "127."): that would also match ordinary domain names
+// that merely start with the string "127." (e.g. "127.attacker.com" or
+// "127.0.0.1.evil.com"), which are not IP addresses at all and could resolve
+// via DNS to any attacker-controlled host. net.ParseIP only parses h as an
+// IP-address literal — it never performs a DNS lookup — so this stays a pure
+// string-literal check with no network access.
+func isLoopbackHost(host string) bool {
+	h := host
+	if hostOnly, _, err := net.SplitHostPort(host); err == nil {
+		h = hostOnly
+	}
+	h = strings.ToLower(h)
+	if h == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
 
 // UserClient is a qdmp client derived from Client via WithAccessToken,

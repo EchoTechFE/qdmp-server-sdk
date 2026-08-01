@@ -56,3 +56,28 @@ func (e *QdmpApiError) Error() string {
 	}
 	return fmt.Sprintf("qdmp: request failed (code=%s, httpStatus=%d): %s", e.Code, e.HTTPStatus, e.Message)
 }
+
+// maxErrorFieldLength bounds how much of a server-supplied Message/
+// RequestID sanitizeForErrorMessage will keep, so a misbehaving upstream
+// can't make every log line built from a *QdmpApiError unbounded.
+const maxErrorFieldLength = 2000
+
+// sanitizeForErrorMessage neutralizes control characters (including raw
+// CR/LF, which could otherwise be used to forge a fake extra "log line" when
+// this value is later written to a log — classic log injection) and bounds
+// the length of server-supplied text. It is applied to QdmpApiError's
+// Message/RequestID fields themselves (see doRequest in request.go), rather
+// than only inside Error(), so a caller reading these exported fields
+// directly also only ever sees the sanitized value.
+func sanitizeForErrorMessage(s string) string {
+	runes := []rune(s)
+	if len(runes) > maxErrorFieldLength {
+		runes = runes[:maxErrorFieldLength]
+	}
+	for i, r := range runes {
+		if r < 0x20 || r == 0x7F {
+			runes[i] = ' '
+		}
+	}
+	return string(runes)
+}

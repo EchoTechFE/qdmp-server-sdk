@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -36,6 +37,77 @@ type Code2SessionResult struct {
 type RefreshTokenResult struct {
 	AccessToken string `json:"accessToken"`
 	ExpiresAt   string `json:"expiresAt"`
+}
+
+// String implements fmt.Stringer so that accidental debug-printing (e.g.
+// fmt.Println(result), fmt.Printf("%v"/"%+v", result), or most structured
+// loggers that fall back to %v/%+v) never leaks the raw AccessToken/
+// RefreshToken values. This is a value-receiver method, so it is also picked
+// up for *Code2SessionResult (a pointer's method set includes all
+// value-receiver methods of the pointed-to type).
+//
+// This must never affect json.Marshal(result): encoding/json only consults
+// the json.Marshaler interface (MarshalJSON), not fmt.Stringer, so callers
+// that persist the real values via JSON — the entire point of
+// Code2Session/RefreshToken existing — are unaffected. Direct field access
+// (result.AccessToken) is likewise untouched.
+func (r Code2SessionResult) String() string {
+	return fmt.Sprintf(
+		"Code2SessionResult{AccessToken:%q, RefreshToken:%q, ExpiresAt:%q, OpenID:%q}",
+		"[REDACTED]", "[REDACTED]", r.ExpiresAt, r.OpenID,
+	)
+}
+
+// String implements fmt.Stringer — see Code2SessionResult.String for why.
+func (r RefreshTokenResult) String() string {
+	return fmt.Sprintf(
+		"RefreshTokenResult{AccessToken:%q, ExpiresAt:%q}",
+		"[REDACTED]", r.ExpiresAt,
+	)
+}
+
+// GoString implements fmt.GoStringer. The %#v verb does NOT consult
+// fmt.Stringer — it falls back to Go-syntax struct reflection, which would
+// print every exported field (including the raw AccessToken/RefreshToken)
+// even with String() defined above. GoStringer is the only way to also
+// redact under %#v.
+func (r Code2SessionResult) GoString() string {
+	return fmt.Sprintf(
+		"qdmp.Code2SessionResult{AccessToken:%q, RefreshToken:%q, ExpiresAt:%q, OpenID:%q}",
+		"[REDACTED]", "[REDACTED]", r.ExpiresAt, r.OpenID,
+	)
+}
+
+// GoString implements fmt.GoStringer — see Code2SessionResult.GoString for why.
+func (r RefreshTokenResult) GoString() string {
+	return fmt.Sprintf(
+		"qdmp.RefreshTokenResult{AccessToken:%q, ExpiresAt:%q}",
+		"[REDACTED]", r.ExpiresAt,
+	)
+}
+
+// LogValue implements slog.LogValuer. Structured loggers built on log/slog
+// (e.g. slog.JSONHandler, slog.TextHandler) do NOT consult fmt.Stringer —
+// slog.JSONHandler JSON-marshals values directly, which would still emit
+// the raw AccessToken/RefreshToken fields even with String()/GoString()
+// already redacting the fmt-based paths above. LogValuer is slog's own
+// redaction hook; it has no effect on json.Marshal (persistence stays
+// exactly as before).
+func (r Code2SessionResult) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("AccessToken", "[REDACTED]"),
+		slog.String("RefreshToken", "[REDACTED]"),
+		slog.String("ExpiresAt", r.ExpiresAt),
+		slog.String("OpenID", r.OpenID),
+	)
+}
+
+// LogValue implements slog.LogValuer — see Code2SessionResult.LogValue for why.
+func (r RefreshTokenResult) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("AccessToken", "[REDACTED]"),
+		slog.String("ExpiresAt", r.ExpiresAt),
+	)
 }
 
 // authInflight represents one in-flight app-level token exchange that
@@ -174,13 +246,43 @@ func (a *AuthService) exchangeClientCredentials(ctx context.Context) (string, er
 		return "", fmt.Errorf("qdmp: auth.token response has an empty accessToken")
 	}
 
-	expiresAt, err := strconv.ParseInt(result.ExpiresAt, 10, 64)
+	expiresAt, err := parseExpiresAt(result.ExpiresAt)
 	if err != nil {
-		return "", fmt.Errorf("qdmp: auth.token response has a non-numeric expiresAt: %w", err)
+		return "", fmt.Errorf("qdmp: auth.token response has an invalid expiresAt: %w", err)
+	}
+	// A non-negative expiresAt can still be already expired, or expiring
+	// within tokenRefreshBufferSeconds (e.g. "1", 1970-01-01, or "a few
+	// seconds from now") — parseExpiresAt only rejects negative/non-numeric
+	// values. Accepting such a value here would cache it and hand it back to
+	// this call's own caller as if it were a usably-fresh token, even though
+	// cachedValid uses the same buffer and would immediately (and correctly)
+	// treat that same cached entry as not-fresh on the very next call. Apply
+	// the identical predicate here so "fresh enough to hand out" means the
+	// same thing on both the write and read paths.
+	if expiresAt-tokenRefreshBufferSeconds <= time.Now().Unix() {
+		return "", fmt.Errorf("qdmp: auth.token response's expiresAt (%d) leaves less than the required %ds before expiry", expiresAt, tokenRefreshBufferSeconds)
 	}
 
 	a.store.Set(TokenEntry{AccessToken: result.AccessToken, ExpiresAt: expiresAt})
 	return result.AccessToken, nil
+}
+
+// parseExpiresAt parses a wire expiresAt string (see Code2SessionResult's
+// doc comment for why it is a string on the wire) as a non-negative absolute
+// Unix-seconds timestamp. Anything that fails to parse as a base-10 int64,
+// or that parses to a negative value, is rejected outright: a
+// negative/corrupted expiresAt must never be treated as a usable expiry
+// (whether cached or returned directly to a one-shot caller), rather than
+// silently limping along.
+func parseExpiresAt(s string) (int64, error) {
+	v, err := strconv.ParseInt(s, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("non-numeric expiresAt %q: %w", s, err)
+	}
+	if v < 0 {
+		return 0, fmt.Errorf("negative expiresAt %q", s)
+	}
+	return v, nil
 }
 
 // Code2Session performs a one-shot AUTHORIZATION_CODE exchange. Never
@@ -208,6 +310,24 @@ func (a *AuthService) Code2Session(ctx context.Context, code string) (*Code2Sess
 	if result.AccessToken == "" {
 		return nil, fmt.Errorf("qdmp: auth.code2Session response has an empty accessToken")
 	}
+	if result.RefreshToken == "" {
+		return nil, fmt.Errorf("qdmp: auth.code2Session response has an empty refreshToken")
+	}
+	if result.OpenID == "" {
+		return nil, fmt.Errorf("qdmp: auth.code2Session response has an empty openId")
+	}
+	expiresAt, err := parseExpiresAt(result.ExpiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("qdmp: auth.code2Session response has an invalid expiresAt: %w", err)
+	}
+	// A non-negative expiresAt can still already be in the past (e.g. "1",
+	// 1970-01-01) — parseExpiresAt only rejects negative/non-numeric values.
+	// Handing back a session whose access token is already dead on arrival
+	// would let a caller persist (or start relying on) a permanently-broken
+	// session, same reasoning as the app-level cached path.
+	if expiresAt <= time.Now().Unix() {
+		return nil, fmt.Errorf("qdmp: auth.code2Session response has an already-expired expiresAt (%d)", expiresAt)
+	}
 	return &result, nil
 }
 
@@ -232,6 +352,15 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*R
 	}
 	if result.AccessToken == "" {
 		return nil, fmt.Errorf("qdmp: auth.refreshToken response has an empty accessToken")
+	}
+	expiresAt, err := parseExpiresAt(result.ExpiresAt)
+	if err != nil {
+		return nil, fmt.Errorf("qdmp: auth.refreshToken response has an invalid expiresAt: %w", err)
+	}
+	// See the identical check in Code2Session: a non-negative but
+	// already-expired expiresAt must not be handed back as a usable result.
+	if expiresAt <= time.Now().Unix() {
+		return nil, fmt.Errorf("qdmp: auth.refreshToken response has an already-expired expiresAt (%d)", expiresAt)
 	}
 	return &result, nil
 }
