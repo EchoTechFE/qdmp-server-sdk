@@ -1,8 +1,8 @@
 # qdmp-server-sdk
 
-[千岛（qdmp）OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node](#node)、[Java](#java)、[Go](#go) 三端实现，统一 token 生命周期管理 + 类型安全的业务接口封装。
+[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一 token 生命周期管理 + 类型安全的业务接口封装。
 
-## Node
+## Node.js
 
 ```bash
 npm install @qdmp/qdmp-server-sdk
@@ -112,7 +112,7 @@ appToken, err := client.Auth.GetAccessToken(ctx)
 
 | 语言 | HTTP 传输 | JSON |
 |---|---|---|
-| Node | 内置全局 `fetch`（`undici` 仅作为开发依赖，提供测试用的 `MockAgent`） | 内置 `JSON` |
+| Node.js | 内置全局 `fetch`（`undici` 仅作为开发依赖，提供测试用的 `MockAgent`） | 内置 `JSON` |
 | Java | OkHttp（`okhttp3`） | Jackson |
 | Go | 标准库 `net/http` | 标准库 `encoding/json` |
 

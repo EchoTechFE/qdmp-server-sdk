@@ -1,4 +1,4 @@
-// Package qdmp is the Go Server SDK for 千岛 (qdmp) OpenAPI.
+// Package qdmp is the Go Server SDK for 千岛小程序开放平台 OpenAPI.
 //
 // Construct a client with NewClient, exchange an app-level access token via
 // Client.Auth.GetAccessToken (cached and single-flight refreshed

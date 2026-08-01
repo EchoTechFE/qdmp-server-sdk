@@ -1,7 +1,7 @@
 {
   "name": "@qdmp/qdmp-server-sdk",
   "version": "0.1.1",
-  "description": "千岛（qdmp）OpenAPI 官方 Node Server SDK",
+  "description": "千岛小程序开放平台 OpenAPI 官方 Node.js Server SDK",
   "license": "MIT",
   "repository": {
     "type": "git",

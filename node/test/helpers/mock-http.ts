@@ -1,9 +1,9 @@
 /**
  * 测试专用 HTTP mock 工具，基于 undici 的 MockAgent。
  *
- * `QdmpClient` 内部发请求用 Node 内置全局 `fetch`（不是从 `undici` 包导入的
+ * `QdmpClient` 内部发请求用 Node.js 内置全局 `fetch`（不是从 `undici` 包导入的
  * `fetch`），显式传入 `{ dispatcher: mockAgent }` 即可正确命中下面的拦截器
- * ——已在本机 Node v22.11.0 + undici(npm) 6.28.0 组合下用最小复现脚本重新实测
+ * ——已在本机 Node.js v22.11.0 + undici(npm) 6.28.0 组合下用最小复现脚本重新实测
  * 确认（全局 fetch 会遵守显式传入的 `dispatcher`，也会遵守 `setGlobalDispatcher()`）。
  * `undici` 仅作为 devDependency 提供 `MockAgent`/`Dispatcher` 类型，不再是运行时依赖。
  */

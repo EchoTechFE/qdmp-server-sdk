@@ -63,12 +63,17 @@ else
   fi
 fi
 rm -rf java/generated/src
+# -t overrides just the file-header partial (java/openapi-generator-templates/licenseInfo.mustache)
+# so every one of the ~70 generated model files doesn't repeat the full spec
+# title/description; everything else still falls back to openapi-generator-cli's
+# built-in Java/resttemplate templates.
 java -jar "$OPENAPI_GENERATOR_CLI_JAR" generate \
   -i shared/openapi.yaml -g java -o java/generated \
   --global-property models,modelTests=false,modelDocs=false \
   --model-package=io.github.echotechfe.qdmp.generated \
   --library=resttemplate \
-  --additional-properties=hideGenerationTimestamp=true,dateLibrary=java8,openApiNullable=false
+  --additional-properties=hideGenerationTimestamp=true,dateLibrary=java8,openApiNullable=false \
+  -t java/openapi-generator-templates
 node java/scripts/gen-route-meta.mjs
 
 echo "==> go: oapi-codegen (models only, pinned to v2.8.0)"

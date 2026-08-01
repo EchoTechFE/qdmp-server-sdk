@@ -121,7 +121,7 @@ mavenPublishing {
 
   pom {
     name.set("qdmp-server-sdk")
-    description.set("千岛（qdmp）OpenAPI 官方 Java Server SDK")
+    description.set("千岛小程序开放平台 OpenAPI 官方 Java Server SDK")
     url.set("https://github.com/EchoTechFE/qdmp-server-sdk")
     licenses {
       license {
