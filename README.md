@@ -1,6 +1,6 @@
 # qdmp-server-sdk
 
-[千岛小程序开放平台（qdmp）OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一 token 生命周期管理 + 类型安全的业务接口封装。
+[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一 token 生命周期管理 + 类型安全的业务接口封装。
 
 ## Node.js
 
