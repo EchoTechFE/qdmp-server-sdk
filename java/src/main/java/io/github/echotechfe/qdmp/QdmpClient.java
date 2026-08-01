@@ -33,7 +33,8 @@ public final class QdmpClient {
    * @param config the client configuration
    */
   public QdmpClient(QdmpClientConfig config) {
-    OkHttpClient httpClient = new OkHttpClient();
+    OkHttpClient httpClient =
+        new OkHttpClient.Builder().followRedirects(false).followSslRedirects(false).build();
     QdmpTransport transport =
         new QdmpTransport(
             httpClient, config.getBaseUrl(), config.getQdmpVersion(), config.getAppId());

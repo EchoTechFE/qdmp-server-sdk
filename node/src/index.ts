@@ -1,7 +1,11 @@
 export {QdmpClient} from './client.js';
 export type {QdmpClientOptions} from './client.js';
 export {AuthModule} from './auth.js';
-export {QdmpApiError, QdmpValidationError} from './errors.js';
+export {
+  QdmpApiError,
+  QdmpTransportError,
+  QdmpValidationError,
+} from './errors.js';
 export type {QdmpErrorCode} from './errors.js';
 export {InMemoryTokenStore} from './token-store.js';
 export type {StoredToken, TokenStore} from './token-store.js';

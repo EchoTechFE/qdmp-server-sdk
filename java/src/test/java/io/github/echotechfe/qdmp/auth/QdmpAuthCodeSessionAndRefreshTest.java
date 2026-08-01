@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.echotechfe.qdmp.QdmpClient;
 import io.github.echotechfe.qdmp.errors.QdmpApiError;
+import io.github.echotechfe.qdmp.errors.QdmpTransportException;
 import io.github.echotechfe.qdmp.errors.QdmpValidationError;
 import io.github.echotechfe.qdmp.generated.AuthRefresh200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.AuthToken200ResponseAllOfData;
@@ -195,5 +196,73 @@ class QdmpAuthCodeSessionAndRefreshTest {
     assertThatThrownBy(() -> client.auth().refreshToken("garbage"))
         .isInstanceOf(QdmpApiError.class)
         .satisfies(e -> assertThat(((QdmpApiError) e).getCode()).isEqualTo("10007"));
+  }
+
+  /**
+   * {@code code2Session} must reject a malformed "success" body the same way {@code
+   * getAccessToken()}'s {@code toCachedAppToken} already does (see {@link
+   * QdmpAuthGetAccessTokenTest#successCode_withNullData_throwsQdmpTransportException_notBareNpe}):
+   * code:"0" but no {@code data} at all must never be handed back to the caller as a silent {@code
+   * null} return value -- it must surface as a {@link QdmpTransportException}.
+   */
+  @Test
+  void code2Session_successCode_withNullData_throwsQdmpTransportException() {
+    server.enqueue(
+        new MockResponse().setResponseCode(200).setBody("{\"code\":\"0\",\"message\":\"ok\"}"));
+    QdmpClient client = TestClients.create(server);
+
+    assertThatThrownBy(() -> client.auth().code2Session("wx-login-code-abc"))
+        .isInstanceOf(QdmpTransportException.class);
+  }
+
+  /**
+   * Same malformed-success guard as above, but for the more subtle case: {@code data} is present
+   * but its {@code accessToken} is missing. The caller must never receive a session object whose
+   * {@code accessToken} is silently {@code null}.
+   */
+  @Test
+  void code2Session_successCode_withDataMissingAccessToken_throwsQdmpTransportException() {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":{"
+                    + "\"expiresAt\":\"1900000000\",\"refreshToken\":\"user-refresh-token\","
+                    + "\"openId\":\"open-id-1\"}}"));
+    QdmpClient client = TestClients.create(server);
+
+    assertThatThrownBy(() -> client.auth().code2Session("wx-login-code-abc"))
+        .isInstanceOf(QdmpTransportException.class);
+  }
+
+  /**
+   * Same guard for {@code refreshToken}: code:"0" but no {@code data} at all must not be returned
+   * to the caller as a silent {@code null}.
+   */
+  @Test
+  void refreshToken_successCode_withNullData_throwsQdmpTransportException() {
+    server.enqueue(
+        new MockResponse().setResponseCode(200).setBody("{\"code\":\"0\",\"message\":\"ok\"}"));
+    QdmpClient client = TestClients.create(server);
+
+    assertThatThrownBy(() -> client.auth().refreshToken("some-refresh-token"))
+        .isInstanceOf(QdmpTransportException.class);
+  }
+
+  /**
+   * Same guard for {@code refreshToken}: {@code data} present but {@code accessToken} missing must
+   * not be returned to the caller as an object whose {@code accessToken} is silently {@code null}.
+   */
+  @Test
+  void refreshToken_successCode_withDataMissingAccessToken_throwsQdmpTransportException() {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":{\"expiresAt\":\"1900000000\"}}"));
+    QdmpClient client = TestClients.create(server);
+
+    assertThatThrownBy(() -> client.auth().refreshToken("some-refresh-token"))
+        .isInstanceOf(QdmpTransportException.class);
   }
 }

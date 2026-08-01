@@ -170,6 +170,10 @@ func (a *AuthService) exchangeClientCredentials(ctx context.Context) (string, er
 		return "", fmt.Errorf("qdmp: failed to decode auth.token response: %w", err)
 	}
 
+	if result.AccessToken == "" {
+		return "", fmt.Errorf("qdmp: auth.token response has an empty accessToken")
+	}
+
 	expiresAt, err := strconv.ParseInt(result.ExpiresAt, 10, 64)
 	if err != nil {
 		return "", fmt.Errorf("qdmp: auth.token response has a non-numeric expiresAt: %w", err)
@@ -201,6 +205,9 @@ func (a *AuthService) Code2Session(ctx context.Context, code string) (*Code2Sess
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("qdmp: failed to decode auth.code2Session response: %w", err)
 	}
+	if result.AccessToken == "" {
+		return nil, fmt.Errorf("qdmp: auth.code2Session response has an empty accessToken")
+	}
 	return &result, nil
 }
 
@@ -222,6 +229,9 @@ func (a *AuthService) RefreshToken(ctx context.Context, refreshToken string) (*R
 	var result RefreshTokenResult
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("qdmp: failed to decode auth.refreshToken response: %w", err)
+	}
+	if result.AccessToken == "" {
+		return nil, fmt.Errorf("qdmp: auth.refreshToken response has an empty accessToken")
 	}
 	return &result, nil
 }

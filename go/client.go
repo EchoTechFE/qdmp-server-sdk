@@ -41,7 +41,10 @@ type ClientOptions struct {
 	QdmpVersion string
 	// HTTPClient overrides the *http.Client used for outbound requests.
 	// Defaults to a new client with a defaultHTTPTimeout (30s) request
-	// timeout, so a hung qdmp endpoint can never block a caller forever.
+	// timeout, so a hung qdmp endpoint can never block a caller forever. Its
+	// CheckRedirect is always overridden by NewClient (on a shallow copy,
+	// never mutating the caller's original client) to refuse redirects --
+	// see the comment in NewClient for why this can't be left configurable.
 	HTTPClient *http.Client
 	// TokenStore overrides the app-level access token cache. Defaults to an
 	// in-process memory store. See TokenStore for why a pluggable store
@@ -90,9 +93,28 @@ func NewClient(opts ClientOptions) (*Client, error) {
 	if qdmpVersion == "" {
 		qdmpVersion = defaultQdmpVersion
 	}
+	// Never follow a redirect: a compromised/misconfigured gateway (or an
+	// attacker able to influence a response's Location header) must not be
+	// able to make this client replay the access-token header (and any other
+	// request state) against an arbitrary host. http.ErrUseLastResponse makes
+	// Client.Do return the 3xx response itself instead of chasing Location;
+	// doRequest (see request.go) then rejects any 3xx status explicitly.
+	//
+	// This is enforced even on a caller-supplied ClientOptions.HTTPClient: we
+	// shallow-copy it and override CheckRedirect on the copy (never mutating
+	// the caller's original *http.Client), so injecting a custom transport or
+	// proxy can never silently reintroduce the redirect-leak vulnerability by
+	// omission.
+	checkRedirect := func(req *http.Request, via []*http.Request) error {
+		return http.ErrUseLastResponse
+	}
 	httpClient := opts.HTTPClient
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: defaultHTTPTimeout}
+		httpClient = &http.Client{Timeout: defaultHTTPTimeout, CheckRedirect: checkRedirect}
+	} else {
+		copied := *httpClient
+		copied.CheckRedirect = checkRedirect
+		httpClient = &copied
 	}
 	store := opts.TokenStore
 	if store == nil {
@@ -152,6 +174,12 @@ func (c *Client) WithAccessToken(token string) *UserClient {
 func requireAccessToken(uc *UserClient, opName string) error {
 	if uc.accessToken == "" {
 		return fmt.Errorf("qdmp: %s requires an access token: %w", opName, ErrAccessTokenRequired)
+	}
+	for i := 0; i < len(uc.accessToken); i++ {
+		b := uc.accessToken[i]
+		if b <= 0x1F || b == 0x7F {
+			return fmt.Errorf("qdmp: %s: %w", opName, ErrInvalidAccessToken)
+		}
 	}
 	return nil
 }

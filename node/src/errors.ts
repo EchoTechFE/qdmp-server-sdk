@@ -68,3 +68,30 @@ export class QdmpValidationError extends Error {
     Object.setPrototypeOf(this, QdmpValidationError.prototype);
   }
 }
+
+export interface QdmpTransportErrorOptions {
+  cause?: unknown;
+  httpStatus?: number;
+}
+
+/** Thrown for transport-level failures that must never be treated as a
+ * business response — e.g. an unexpected 3xx redirect, or a malformed
+ * "success" envelope that fails local shape validation before it is ever
+ * cached or returned to a caller. Never include header values (accessToken,
+ * appSecret, refreshToken, Location) in the message. */
+export class QdmpTransportError extends Error {
+  readonly cause?: unknown;
+  readonly httpStatus?: number;
+
+  constructor(message: string, options?: QdmpTransportErrorOptions) {
+    super(message);
+    this.name = 'QdmpTransportError';
+    this.cause = options?.cause;
+    this.httpStatus = options?.httpStatus;
+    Object.setPrototypeOf(this, QdmpTransportError.prototype);
+  }
+
+  override toString(): string {
+    return this.message;
+  }
+}

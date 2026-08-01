@@ -117,6 +117,16 @@ func (c *Client) doRequest(ctx context.Context, p requestParams) (json.RawMessag
 	}
 	defer resp.Body.Close()
 
+	// The default *http.Client never follows redirects (see NewClient's
+	// CheckRedirect), so a 3xx response here is the raw redirect itself, not
+	// something already chased to its destination. Reject it explicitly
+	// rather than trying to parse a redirect response body as a business
+	// envelope. Deliberately does not echo any request header (access-token
+	// included) into the error message.
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
+		return nil, fmt.Errorf("qdmp: unexpected redirect response (http %d)", resp.StatusCode)
+	}
+
 	raw, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("qdmp: failed to read response body (http status %d): %w", resp.StatusCode, err)

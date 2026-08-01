@@ -39,7 +39,13 @@ cd java && ./gradlew checkstyleMain checkstyleTest spotlessCheck
 cd go && gofmt -l . && go vet ./... && staticcheck ./...
 ```
 
-三端都遵循 Google 官方风格指南：TS 用 `gts`（`npm run lint` / `npm run fix`），Java 用 `google-java-format`（`./gradlew spotlessApply` 自动修复）+ Checkstyle（`google_checks.xml`），Go 用 `gofmt`/`go vet`/`staticcheck`。
+三端都遵循 Google 官方风格指南，具体文档地址：
+
+- **TypeScript**：[Google TypeScript Style Guide](https://google.github.io/styleguide/tsguide.html)，由 [`gts`](https://github.com/google/gts) 落地（`npm run lint` 检查 / `npm run fix` 自动修复）。
+- **Java**：[Google Java Style Guide](https://google.github.io/styleguide/javaguide.html)，由 Checkstyle 的 `google_checks.xml`（随 checkstyle 工具本体分发）做静态检查，`google-java-format` 通过 Spotless 插件（`./gradlew spotlessApply` 自动修复）落地排版规则。
+- **Go**：[Google Go Style Guide](https://google.github.io/styleguide/go/)（含 [Style Guide](https://google.github.io/styleguide/go/guide) / [Style Decisions](https://google.github.io/styleguide/go/decisions) / [Best Practices](https://google.github.io/styleguide/go/best-practices) 三部分），目前落地手段是 `gofmt` + `go vet` + `staticcheck`；仓库暂未接入面向 Google Go Style 的专用 lint 配置（如 golangci-lint），差异需要人工对照上述文档走查。
+
+三端提交前必须跑通对应语言的 lint/format 检查（见上一节命令），不允许绕过。
 
 ## 测试
 
