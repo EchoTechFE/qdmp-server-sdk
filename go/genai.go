@@ -38,12 +38,11 @@ func (g *GenAIGroup) Generate(ctx context.Context, body generated.GenaiGenerateJ
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodPost,
-		path:        "/genai/v1/generate",
-		jsonBody:    body,
-		authScheme:  authSchemeGenai,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodPost,
+		path:       "/genai/v1/generate",
+		jsonBody:   body,
+		authScheme: authSchemeGenai,
 	})
 	if err != nil {
 		return nil, err
@@ -70,12 +69,11 @@ func (g *GenAIGroup) Detail(ctx context.Context, params generated.GenaiDetailPar
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/genai/v1/detail",
-		query:       query,
-		authScheme:  authSchemeGenai,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/genai/v1/detail",
+		query:      query,
+		authScheme: authSchemeGenai,
 	})
 	if err != nil {
 		return nil, err

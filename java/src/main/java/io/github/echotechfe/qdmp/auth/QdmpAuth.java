@@ -14,24 +14,34 @@ import java.time.Clock;
 /**
  * Token lifecycle management, per {@code POST /auth/v1/token} and {@code POST /auth/v1/refresh}.
  *
- * <p>The app-level token ({@code CLIENT_CREDENTIALS}, via {@link #getAccessToken()}) is cached and
- * refreshed automatically: cached values are reused until fewer than {@link
- * #REFRESH_BUFFER_SECONDS} remain before expiry, refreshes are single-flighted under a lock so
+ * <p>The app credential ({@code CLIENT_CREDENTIALS}, via {@link #getAppAccessToken()}) is cached
+ * and renewed automatically: cached values are reused until fewer than {@link
+ * #REFRESH_BUFFER_SECONDS} remain before expiry, renewals are single-flighted under a lock so
  * concurrent callers never trigger more than one network call, and persistence goes through the
  * pluggable {@link TokenStore}.
  *
- * <p>User-level tokens ({@code AUTHORIZATION_CODE}, via {@link #code2Session} and {@link
- * #refreshToken}) are never cached by the SDK -- a server process serves many end users at once and
- * has no way to know, on its own, which one a given call belongs to. Callers must persist these
- * themselves.
+ * <p>User-authorization credentials ({@code AUTHORIZATION_CODE}, via {@link #getUserAccessToken}
+ * and {@link #refreshToken}) are never cached by the SDK -- a server process serves many end users
+ * at once and has no way to know, on its own, which one a given call belongs to. Callers must
+ * persist these themselves, or hand them to {@link
+ * io.github.echotechfe.qdmp.QdmpClient#withUserCredential} to have the SDK keep one alive for the
+ * duration of a request.
  */
 public final class QdmpAuth {
 
   /**
-   * Proactive refresh buffer, in seconds: the app-level token is refreshed once fewer than this
-   * many seconds remain before its reported expiry, rather than waiting for it to actually expire.
+   * Proactive renewal buffer, in seconds: a credential is renewed once fewer than this many seconds
+   * remain before its reported expiry, rather than waiting for it to actually expire. Shared with
+   * {@link UserCredentialSession}, which applies the same buffer to user-authorization credentials.
    */
-  private static final long REFRESH_BUFFER_SECONDS = 300;
+  static final long REFRESH_BUFFER_SECONDS = 300;
+
+  // All three auth endpoints authenticate with appId/appSecret (or the refresh token) in the
+  // request body -- their route metadata declares authScheme "noAuth", so no token header is
+  // attached at all. Named rather than passed as a bare `null` because QdmpTransport overloads its
+  // credential parameter (String vs QdmpContext), which a bare `null` literal would leave
+  // ambiguous.
+  private static final String NO_ACCESS_TOKEN = null;
 
   private static final RouteMeta.Entry AUTH_TOKEN_ROUTE = RouteMeta.get("authToken");
   private static final RouteMeta.Entry AUTH_REFRESH_ROUTE = RouteMeta.get("authRefresh");
@@ -62,19 +72,24 @@ public final class QdmpAuth {
   }
 
   /**
-   * Returns a valid app-level access token, reusing/refreshing the cached one as needed.
+   * Returns a valid app credential, reusing/renewing the cached one as needed.
    *
-   * @return the app-level access token
+   * <p>The object returned by the cached path and the object returned by the freshly-exchanged path
+   * are built from the same {@link CachedAppToken} by {@link #toAppAccessTokenResult}, so both
+   * carry the full set of fields -- a caller can never tell which path served it apart by looking
+   * at what is populated.
+   *
+   * @return the app credential: access token, expiry, refresh token, and open ID
    */
-  public String getAccessToken() {
+  public AppAccessTokenResult getAppAccessToken() {
     CachedAppToken cached = tokenStore.get().orElse(null);
     if (cached != null && hasSufficientTimeRemaining(cached)) {
-      return cached.getAccessToken();
+      return toAppAccessTokenResult(cached);
     }
     synchronized (refreshLock) {
       CachedAppToken recheck = tokenStore.get().orElse(null);
       if (recheck != null && hasSufficientTimeRemaining(recheck)) {
-        return recheck.getAccessToken();
+        return toAppAccessTokenResult(recheck);
       }
       AuthTokenRequest request =
           new AuthTokenRequest()
@@ -85,7 +100,7 @@ public final class QdmpAuth {
           transport.post(
               AUTH_TOKEN_ROUTE.getPath(),
               AuthScheme.fromWireValue(AUTH_TOKEN_ROUTE.getAuthScheme()),
-              null,
+              NO_ACCESS_TOKEN,
               request,
               AuthToken200ResponseAllOfData.class);
       CachedAppToken fresh = toCachedAppToken(data);
@@ -102,8 +117,16 @@ public final class QdmpAuth {
                 + "\"); refusing to cache or return it");
       }
       tokenStore.set(fresh);
-      return fresh.getAccessToken();
+      return toAppAccessTokenResult(fresh);
     }
+  }
+
+  private static AppAccessTokenResult toAppAccessTokenResult(CachedAppToken token) {
+    return new AppAccessTokenResult(
+        token.getAccessToken(),
+        token.getExpiresAtEpochSeconds(),
+        token.getRefreshToken(),
+        token.getOpenId());
   }
 
   // The server reported code:"0" (success), but the SDK still has to guard against a
@@ -118,22 +141,27 @@ public final class QdmpAuth {
         data == null ? null : data.getExpiresAt(),
         "POST /auth/v1/token");
     long expiresAtEpochSeconds = parseExpiresAt(data.getExpiresAt(), "POST /auth/v1/token");
-    return new CachedAppToken(data.getAccessToken(), expiresAtEpochSeconds);
+    // Unlike the user-authorization path, refreshToken/openId are deliberately not required here:
+    // the CLIENT_CREDENTIALS response reports an empty openId (the credential represents the app,
+    // not a user), and its refreshToken -- which the SDK never uses, since it renews by re-running
+    // CLIENT_CREDENTIALS -- is passed through exactly as received rather than validated.
+    return new CachedAppToken(
+        data.getAccessToken(), expiresAtEpochSeconds, data.getRefreshToken(), data.getOpenId());
   }
 
   /**
-   * Exchanges a one-time {@code AUTHORIZATION_CODE} login code for a user-level session. Never
-   * cached by the SDK -- persist the result yourself if you need it beyond this call.
+   * Exchanges a one-time authorization code for a user-authorization credential. Never cached by
+   * the SDK -- persist the result yourself if you need it beyond this call.
    *
-   * @param code the login code, e.g. from {@code qd.login()}; required and must be non-empty for
-   *     grantType {@code AUTHORIZATION_CODE}
-   * @return the full session: access token, refresh token, expiry, and open ID
+   * @param code the one-time authorization code obtained by the app/front end; required and must be
+   *     non-empty for grantType {@code AUTHORIZATION_CODE}
+   * @return the full credential: access token, refresh token, expiry, and open ID
    * @throws QdmpValidationError if {@code code} is {@code null} or empty
    */
-  public Code2SessionResult code2Session(String code) {
+  public UserAccessTokenResult getUserAccessToken(String code) {
     if (code == null || code.isEmpty()) {
       throw new QdmpValidationError(
-          "code2Session: \"code\" is required for grantType=AUTHORIZATION_CODE and must be a"
+          "getUserAccessToken: \"code\" is required for grantType=AUTHORIZATION_CODE and must be a"
               + " non-empty string");
     }
     AuthTokenRequest request =
@@ -146,7 +174,7 @@ public final class QdmpAuth {
         transport.post(
             AUTH_TOKEN_ROUTE.getPath(),
             AuthScheme.fromWireValue(AUTH_TOKEN_ROUTE.getAuthScheme()),
-            null,
+            NO_ACCESS_TOKEN,
             request,
             AuthToken200ResponseAllOfData.class);
     requireNonMalformed(
@@ -158,15 +186,15 @@ public final class QdmpAuth {
     requireNonEmptyField(data.getRefreshToken(), "refreshToken", "POST /auth/v1/token");
     requireNonEmptyField(data.getOpenId(), "openId", "POST /auth/v1/token");
     requireNotAlreadyExpired(expiresAtEpochSeconds, "POST /auth/v1/token");
-    return new Code2SessionResult(
+    return new UserAccessTokenResult(
         data.getAccessToken(), data.getRefreshToken(), expiresAtEpochSeconds, data.getOpenId());
   }
 
   /**
    * Exchanges a user-level refresh token for a new access token. Never cached by the SDK.
    *
-   * @param refreshToken the refresh token previously obtained from {@link #code2Session}; required
-   *     and must be non-empty
+   * @param refreshToken the refresh token previously obtained from {@link #getUserAccessToken};
+   *     required and must be non-empty
    * @return the new access token and its expiry
    * @throws QdmpValidationError if {@code refreshToken} is {@code null} or empty
    */
@@ -180,7 +208,7 @@ public final class QdmpAuth {
         transport.post(
             AUTH_REFRESH_ROUTE.getPath(),
             AuthScheme.fromWireValue(AUTH_REFRESH_ROUTE.getAuthScheme()),
-            null,
+            NO_ACCESS_TOKEN,
             request,
             AuthRefresh200ResponseAllOfData.class);
     requireNonMalformed(
@@ -193,10 +221,11 @@ public final class QdmpAuth {
     return new RefreshTokenResult(data.getAccessToken(), expiresAtEpochSeconds);
   }
 
-  // Shared guard for all three auth endpoints (CLIENT_CREDENTIALS/code2Session/refreshToken): the
-  // server reported code:"0" (success), but the SDK still has to protect callers from a
-  // structurally malformed body -- a null `data` or a null/empty `accessToken`/`expiresAt` must
-  // never be handed back as a silently-broken session/token object.
+  // Shared guard for all three auth endpoints
+  // (CLIENT_CREDENTIALS/getUserAccessToken/refreshToken): the server reported code:"0" (success),
+  // but the SDK still has to protect callers from a structurally malformed body -- a null `data` or
+  // a null/empty `accessToken`/`expiresAt` must never be handed back as a silently-broken
+  // credential object.
   private static void requireNonMalformed(
       boolean dataIsNull, String accessToken, String expiresAt, String routeDescription) {
     if (dataIsNull
@@ -232,10 +261,12 @@ public final class QdmpAuth {
     return parsed;
   }
 
-  // code2Session's Javadoc promises "the full session: access token, refresh token, expiry, and
-  // open ID" -- unlike accessToken/expiresAt (checked by requireNonMalformed), refreshToken/openId
-  // were never validated at all, so a response missing either field would silently hand back a
-  // session object with a null/empty refresh token or open ID.
+  // getUserAccessToken's Javadoc promises "the full credential: access token, refresh token,
+  // expiry, and open ID" -- unlike accessToken/expiresAt (checked by requireNonMalformed),
+  // refreshToken/openId were never validated at all, so a response missing either field would
+  // silently hand back a credential object with a null/empty refresh token or open ID. This guard
+  // is user-authorization-only: on the CLIENT_CREDENTIALS path openId is empty by design (see
+  // toCachedAppToken).
   private static void requireNonEmptyField(
       String value, String fieldName, String routeDescription) {
     if (value == null || value.isEmpty()) {
@@ -248,14 +279,12 @@ public final class QdmpAuth {
     }
   }
 
-  // code2Session/refreshToken are one-shot exchanges the SDK never caches (unlike the app-level
+  // getUserAccessToken/refreshToken are one-shot exchanges the SDK never caches (unlike the
   // CLIENT_CREDENTIALS path, guarded by hasSufficientTimeRemaining's stricter
-  // REFRESH_BUFFER_SECONDS
-  // buffer), so there is no cache-freshness policy to apply here -- but a non-negative expiresAt
-  // can
-  // still already be in the past (e.g. "1", 1970-01-01; parseExpiresAt only rejects negative/
-  // non-numeric values). Handing back a session/token that is already dead on arrival would let a
-  // caller persist (or start relying on) a permanently-broken session.
+  // REFRESH_BUFFER_SECONDS buffer), so there is no cache-freshness policy to apply here -- but a
+  // non-negative expiresAt can still already be in the past (e.g. "1", 1970-01-01; parseExpiresAt
+  // only rejects negative/non-numeric values). Handing back a credential that is already dead on
+  // arrival would let a caller persist (or start relying on) a permanently-broken one.
   private void requireNotAlreadyExpired(long expiresAtEpochSeconds, String routeDescription) {
     if (expiresAtEpochSeconds <= clock.instant().getEpochSecond()) {
       throw new QdmpTransportException(

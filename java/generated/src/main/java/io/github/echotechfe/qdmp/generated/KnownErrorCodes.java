@@ -29,7 +29,7 @@ public final class KnownErrorCodes {
   /** {@code 10002}: 密钥不匹配. Source: 文档 */
   public static final int APP_SECRET_MISMATCH = 10002;
 
-  /** {@code 10003}: 授权码错误. Source: 文档 */
+  /** {@code 10003}: 授权码错误或超过 5 分钟. Source: 文档（实测复核确认：HTTP 200 + 该 code，服务端返回的 message 是「授权码错误或超过 5 分钟」——授权码有 5 分钟有效期，源文档未写明） */
   public static final int AUTH_CODE_INVALID = 10003;
 
   /** {@code 10004}: 认证类型不支持. Source: 文档 */

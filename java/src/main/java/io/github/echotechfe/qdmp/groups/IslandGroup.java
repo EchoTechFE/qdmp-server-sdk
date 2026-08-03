@@ -33,7 +33,7 @@ public final class IslandGroup {
     return transport.get(
         DETAIL_ROUTE.getPath(),
         AuthScheme.fromWireValue(DETAIL_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         Map.of("id", id),
         IslandDetail200ResponseAllOfData.class);
   }

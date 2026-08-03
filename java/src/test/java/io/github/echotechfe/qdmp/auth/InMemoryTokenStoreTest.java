@@ -20,7 +20,8 @@ class InMemoryTokenStoreTest {
   @Test
   void set_thenGet_returnsTheSameToken() {
     TokenStore store = new InMemoryTokenStore();
-    CachedAppToken token = new CachedAppToken("app-level-token", 1_900_000_000L);
+    CachedAppToken token =
+        new CachedAppToken("app-level-token", 1_900_000_000L, "app-refresh-token", "");
 
     store.set(token);
 
@@ -32,7 +33,7 @@ class InMemoryTokenStoreTest {
   @Test
   void clear_removesTheStoredToken() {
     TokenStore store = new InMemoryTokenStore();
-    store.set(new CachedAppToken("app-level-token", 1_900_000_000L));
+    store.set(new CachedAppToken("app-level-token", 1_900_000_000L, "app-refresh-token", ""));
 
     store.clear();
 
@@ -44,7 +45,7 @@ class InMemoryTokenStoreTest {
     TokenStore a = new InMemoryTokenStore();
     TokenStore b = new InMemoryTokenStore();
 
-    a.set(new CachedAppToken("token-a", 1_900_000_000L));
+    a.set(new CachedAppToken("token-a", 1_900_000_000L, "app-refresh-token", ""));
 
     assertThat(b.get()).isEmpty();
   }

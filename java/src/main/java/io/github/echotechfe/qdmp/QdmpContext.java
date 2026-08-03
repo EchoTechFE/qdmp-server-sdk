@@ -9,10 +9,10 @@ import java.util.Objects;
  */
 public final class QdmpContext {
 
-  private final String accessToken;
+  private final AccessTokenSource tokenSource;
 
-  private QdmpContext(String accessToken) {
-    this.accessToken = accessToken;
+  private QdmpContext(AccessTokenSource tokenSource) {
+    this.tokenSource = tokenSource;
   }
 
   /**
@@ -33,7 +33,22 @@ public final class QdmpContext {
       throw new IllegalArgumentException("accessToken must not be blank");
     }
     requireHeaderSafe(accessToken);
-    return new QdmpContext(accessToken);
+    return new QdmpContext(new StaticAccessTokenSource(accessToken));
+  }
+
+  // The context handed to the business groups by QdmpUserClient: instead of a fixed token it
+  // carries
+  // the live user-authorization credential, so QdmpTransport can renew it (proactively, or after an
+  // HTTP 401) without any group method knowing about renewal at all. Package-private because
+  // QdmpUserClient is the only legitimate caller -- external callers go through
+  // QdmpClient#withUserCredential.
+  static QdmpContext boundTo(AccessTokenSource tokenSource) {
+    Objects.requireNonNull(tokenSource, "tokenSource must not be null");
+    return new QdmpContext(tokenSource);
+  }
+
+  AccessTokenSource tokenSource() {
+    return tokenSource;
   }
 
   // Whitelists printable ASCII (0x20-0x7E) before the token ever reaches QdmpTransport's OkHttp
@@ -59,7 +74,12 @@ public final class QdmpContext {
     }
   }
 
+  /**
+   * Returns the access token this context currently carries, without triggering a renewal.
+   *
+   * @return the access token
+   */
   public String getAccessToken() {
-    return accessToken;
+    return tokenSource.currentAccessToken();
   }
 }

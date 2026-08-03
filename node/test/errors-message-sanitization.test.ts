@@ -45,7 +45,7 @@ void test('QdmpApiError: message 中嵌入的 \\r\\n 不得原样出现在 error
     .reply(200, businessFailure('40001', injectedMessage));
 
   const client = makeClient(mockAgent);
-  const err = await expectFailure(() => client.auth.getAccessToken());
+  const err = await expectFailure(() => client.auth.getAppAccessToken());
 
   assert.ok(
     err instanceof QdmpApiError,
@@ -71,7 +71,7 @@ void test('QdmpApiError: 服务端返回超长 message（约20万字符）时，
     .reply(200, businessFailure('40002', hugeMessage));
 
   const client = makeClient(mockAgent);
-  const err = await expectFailure(() => client.auth.getAccessToken());
+  const err = await expectFailure(() => client.auth.getAppAccessToken());
 
   assert.ok(
     err instanceof QdmpApiError,

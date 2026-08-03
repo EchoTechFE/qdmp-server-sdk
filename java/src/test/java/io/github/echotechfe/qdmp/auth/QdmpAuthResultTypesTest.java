@@ -12,16 +12,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code code2Session}/{@code refreshToken} currently return the raw openapi-generator DTOs {@code
- * AuthToken200ResponseAllOfData}/{@code AuthRefresh200ResponseAllOfData}. Those generated classes'
- * {@code toString()} is produced by the openapi-generator template and prints every field verbatim,
- * including {@code accessToken}/{@code refreshToken} -- so a caller doing the extremely common
- * {@code logger.info("session={}", session)} would write the plaintext token straight into logs.
- * Generated files can't be hand-edited (they get overwritten by the next {@code ./gradlew codegen}
- * run), so the fix is to introduce hand-written result types, matching the naming already used by
- * the Go SDK: {@link Code2SessionResult} (accessToken/refreshToken/expiresAtEpochSeconds/openId)
- * and {@link RefreshTokenResult} (accessToken/expiresAtEpochSeconds), neither of which may print
- * the actual token values from {@code toString()}.
+ * {@code getUserAccessToken}/{@code refreshToken} currently return the raw openapi-generator DTOs
+ * {@code AuthToken200ResponseAllOfData}/{@code AuthRefresh200ResponseAllOfData}. Those generated
+ * classes' {@code toString()} is produced by the openapi-generator template and prints every field
+ * verbatim, including {@code accessToken}/{@code refreshToken} -- so a caller doing the extremely
+ * common {@code logger.info("session={}", session)} would write the plaintext token straight into
+ * logs. Generated files can't be hand-edited (they get overwritten by the next {@code ./gradlew
+ * codegen} run), so the fix is to introduce hand-written result types, matching the naming already
+ * used by the Go SDK: {@link UserAccessTokenResult}
+ * (accessToken/refreshToken/expiresAtEpochSeconds/openId) and {@link RefreshTokenResult}
+ * (accessToken/expiresAtEpochSeconds), neither of which may print the actual token values from
+ * {@code toString()}.
  */
 class QdmpAuthResultTypesTest {
 
@@ -42,7 +43,7 @@ class QdmpAuthResultTypesTest {
   }
 
   @Test
-  void code2Session_returnsCode2SessionResult_withMatchingGetters() {
+  void getUserAccessToken_returnsUserAccessTokenResult_withMatchingGetters() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -54,7 +55,7 @@ class QdmpAuthResultTypesTest {
                     + "\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    Code2SessionResult session = client.auth().code2Session("some-code");
+    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
 
     assertThat(session.getAccessToken()).isEqualTo(SENTINEL_ACCESS_TOKEN);
     assertThat(session.getRefreshToken()).isEqualTo(SENTINEL_REFRESH_TOKEN);
@@ -63,7 +64,7 @@ class QdmpAuthResultTypesTest {
   }
 
   @Test
-  void code2Session_toString_doesNotLeakAccessTokenOrRefreshToken() {
+  void getUserAccessToken_toString_doesNotLeakAccessTokenOrRefreshToken() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -75,7 +76,7 @@ class QdmpAuthResultTypesTest {
                     + "\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    Code2SessionResult session = client.auth().code2Session("some-code");
+    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
 
     assertThat(session.toString()).doesNotContain(SENTINEL_ACCESS_TOKEN);
     assertThat(session.toString()).doesNotContain(SENTINEL_REFRESH_TOKEN);
@@ -90,7 +91,7 @@ class QdmpAuthResultTypesTest {
    * return the raw value unchanged; only the debug rendering is sanitized.
    */
   @Test
-  void code2Session_toString_doesNotLeakRawCrLfInOpenId() {
+  void getUserAccessToken_toString_doesNotLeakRawCrLfInOpenId() {
     String injectedOpenId = "open-id-1\\r\\nFAKE injected log line";
     server.enqueue(
         new MockResponse()
@@ -105,7 +106,7 @@ class QdmpAuthResultTypesTest {
                     + "\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    Code2SessionResult session = client.auth().code2Session("some-code");
+    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
 
     assertThat(session.toString()).doesNotContain("\r").doesNotContain("\n");
     // Reverse-direction guard: getOpenId() must still return the raw value untouched.

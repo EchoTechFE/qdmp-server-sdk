@@ -2,12 +2,12 @@ package io.github.echotechfe.qdmp.errors;
 
 /**
  * Thrown for SDK-local parameter validation failures that never reach the network -- e.g. a
- * missing/empty {@code code} passed to {@code auth.code2Session} (required for grantType {@code
- * AUTHORIZATION_CODE}) or a missing/empty {@code refreshToken} passed to {@code auth.refreshToken}.
- * Mirrors the Node SDK's {@code QdmpValidationError} (see {@code node/src/errors.ts}) for
- * cross-language behavioral parity. Kept distinct from {@link QdmpApiError}, which always
- * represents an actual server response, and from {@link QdmpTransportException}, which represents a
- * below-HTTP-layer failure.
+ * missing/empty {@code code} passed to {@code auth.getUserAccessToken} (required for grantType
+ * {@code AUTHORIZATION_CODE}) or a missing/empty {@code refreshToken} passed to {@code
+ * auth.refreshToken}. Mirrors the Node SDK's {@code QdmpValidationError} (see {@code
+ * node/src/errors.ts}) for cross-language behavioral parity. Kept distinct from {@link
+ * QdmpApiError}, which always represents an actual server response, and from {@link
+ * QdmpTransportException}, which represents a below-HTTP-layer failure.
  */
 public final class QdmpValidationError extends RuntimeException {
 

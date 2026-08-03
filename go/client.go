@@ -1,6 +1,8 @@
 package qdmp
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,7 +24,7 @@ const defaultQdmpVersion = "1.0"
 // http.Client (used whenever ClientOptions.HTTPClient is nil). Without this,
 // a hung token endpoint would block indefinitely: the default *http.Client
 // has no timeout at all, which combined with AuthService's single-flight
-// refresh means every concurrent GetAccessToken caller would pile up behind
+// refresh means every concurrent GetAppAccessToken caller would pile up behind
 // one stuck exchange with no way out other than each caller's own context
 // deadline. Callers needing a different bound can still override it via
 // ClientOptions.HTTPClient.
@@ -75,7 +77,7 @@ type Client struct {
 
 	// Auth manages the app-level (CLIENT_CREDENTIALS) token lifecycle
 	// (cached + single-flight refresh) plus the one-shot,
-	// never-cached code2Session/refreshToken exchanges.
+	// never-cached getUserAccessToken/refreshToken exchanges.
 	Auth *AuthService
 }
 
@@ -191,9 +193,14 @@ func isLoopbackHost(host string) bool {
 // only place business group methods (User, Island, Spu, Tag, Mark, WishSpu,
 // GenAI) are reachable, by design: obtaining one requires a token, so it is
 // no longer possible to "forget" to pass one at the call site.
+// A UserClient derived from WithUserCredential additionally carries a
+// userCredential, which renews the access token on its own (see
+// usercredential.go); one derived from WithAccessToken has a nil cred and
+// keeps its static, never-renewed token.
 type UserClient struct {
 	client      *Client
 	accessToken string
+	cred        *userCredential
 
 	User    *UserGroup
 	Island  *IslandGroup
@@ -224,15 +231,50 @@ func (c *Client) WithAccessToken(token string) *UserClient {
 // group method performs before touching the network: shared/generated/
 // route-meta.json marks every non-auth operation x-qdmp-token-required=true,
 // so an empty token here always means "must not call this operation".
+//
+// For a WithUserCredential client this checks the credential's *current*
+// access token (which a renewal may have replaced since construction), and
+// additionally requires the refresh token that makes renewal possible at all.
 func requireAccessToken(uc *UserClient, opName string) error {
-	if uc.accessToken == "" {
+	current := uc.Credential()
+	if current.AccessToken == "" {
 		return fmt.Errorf("qdmp: %s requires an access token: %w", opName, ErrAccessTokenRequired)
 	}
-	for i := 0; i < len(uc.accessToken); i++ {
-		b := uc.accessToken[i]
+	for i := 0; i < len(current.AccessToken); i++ {
+		b := current.AccessToken[i]
 		if b <= 0x1F || b == 0x7F {
 			return fmt.Errorf("qdmp: %s: %w", opName, ErrInvalidAccessToken)
 		}
 	}
+	if uc.cred != nil && current.RefreshToken == "" {
+		return fmt.Errorf("qdmp: %s requires a refresh token: %w", opName, ErrRefreshTokenRequired)
+	}
 	return nil
+}
+
+// doRequest is the single transport chokepoint every business group method
+// goes through. Routing all seven groups here (instead of letting each call
+// Client.doRequest directly) is what makes token renewal and the 401 retry
+// a property of the client rather than something each operation has to
+// remember to implement.
+func (uc *UserClient) doRequest(ctx context.Context, p requestParams) (json.RawMessage, error) {
+	if uc.cred == nil {
+		p.accessToken = uc.accessToken
+		return uc.client.doRequest(ctx, p)
+	}
+	return uc.cred.do(ctx, p)
+}
+
+// Credential returns a snapshot of the credential this client currently
+// holds, so a caller can persist a renewed access token before its process
+// exits. The returned value is an independent copy: it never changes as the
+// client renews, and changing it never affects the client.
+//
+// For a WithAccessToken client (no renewal, no refresh token) only
+// AccessToken is populated.
+func (uc *UserClient) Credential() UserCredential {
+	if uc.cred == nil {
+		return UserCredential{AccessToken: uc.accessToken}
+	}
+	return uc.cred.snapshot()
 }

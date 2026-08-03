@@ -61,12 +61,11 @@ func (g *SpuGroup) Detail(ctx context.Context, params generated.SpuDetailParams)
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/spu/v1/detail",
-		query:       query,
-		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/spu/v1/detail",
+		query:      query,
+		authScheme: authSchemeStandard,
 	})
 	if err != nil {
 		return nil, err
@@ -108,12 +107,11 @@ func (g *SpuGroup) Search(ctx context.Context, params generated.SpuSearchParams)
 	setIfNotNil(query, "offset", params.Offset)
 	setIfNotNil(query, "limit", params.Limit)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/spu/v1/search",
-		query:       query,
-		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/spu/v1/search",
+		query:      query,
+		authScheme: authSchemeStandard,
 	})
 	if err != nil {
 		return nil, err

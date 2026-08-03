@@ -15,6 +15,15 @@ export interface StoredToken {
   /** Absolute Unix seconds timestamp, wire format is a string (see
    * shared/openapi.yaml expiresAt field notes). */
   expiresAt: string;
+  /** The rest of the credential the CLIENT_CREDENTIALS grant returns.
+   * Cached alongside accessToken/expiresAt so a getAppAccessToken() call
+   * served from the store returns exactly as complete a credential as one
+   * that just performed the exchange. Optional because a store populated by
+   * an older SDK version (or a hand-written store) may not carry them —
+   * they are then reported as empty strings rather than treated as an
+   * error. */
+  refreshToken?: string;
+  openId?: string;
 }
 
 export interface TokenStore {

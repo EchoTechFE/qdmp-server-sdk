@@ -31,11 +31,10 @@ func (g *UserGroup) Me(ctx context.Context) (*UserMeResult, error) {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/user/v1/me",
-		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/user/v1/me",
+		authScheme: authSchemeStandard,
 	})
 	if err != nil {
 		return nil, err

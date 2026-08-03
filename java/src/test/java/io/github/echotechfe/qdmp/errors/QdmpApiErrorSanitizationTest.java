@@ -49,7 +49,7 @@ class QdmpApiErrorSanitizationTest {
     QdmpClient client = TestClients.create(server);
 
     QdmpApiError error =
-        (QdmpApiError) Assertions.catchThrowable(() -> client.auth().getAccessToken());
+        (QdmpApiError) Assertions.catchThrowable(() -> client.auth().getAppAccessToken());
 
     assertThat(error).isNotNull();
     assertThat(error.toString()).doesNotContain("\r").doesNotContain("\n");
@@ -67,7 +67,7 @@ class QdmpApiErrorSanitizationTest {
     QdmpClient client = TestClients.create(server);
 
     QdmpApiError error =
-        (QdmpApiError) Assertions.catchThrowable(() -> client.auth().getAccessToken());
+        (QdmpApiError) Assertions.catchThrowable(() -> client.auth().getAppAccessToken());
 
     assertThat(error).isNotNull();
     assertThat(error.toString().length())

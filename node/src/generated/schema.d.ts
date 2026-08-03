@@ -15,7 +15,7 @@ export interface paths {
         put?: never;
         /**
          * 获取访问令牌
-         * @description 支持两种授权模式：CLIENT_CREDENTIALS（客户端凭证）和 AUTHORIZATION_CODE（授权码，用户登录后）。
+         * @description 签发两种凭证：CLIENT_CREDENTIALS 换应用凭证，代表这个开放平台应用本身，不代表任何用户，用于开发者内部调试、服务端联调、不需要用户身份的后台任务；AUTHORIZATION_CODE 换用户授权凭证，绑定 openId，代表某个真实登录用户，应用上线后调业务接口全程用它。
          */
         post: operations["authToken"];
         delete?: never;
@@ -555,7 +555,7 @@ export interface components {
     };
     responses: never;
     parameters: {
-        /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+        /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
         AccessTokenHeader: string;
         /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
         QdmpVersionHeader: string;
@@ -581,7 +581,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /**
-                     * @description 授权类型：CLIENT_CREDENTIALS 或 AUTHORIZATION_CODE
+                     * @description 凭证类型：CLIENT_CREDENTIALS（应用凭证）或 AUTHORIZATION_CODE（用户授权凭证）
                      * @enum {string}
                      */
                     grantType: "CLIENT_CREDENTIALS" | "AUTHORIZATION_CODE";
@@ -589,7 +589,7 @@ export interface operations {
                     appId: string;
                     /** @description 应用密钥 */
                     appSecret: string;
-                    /** @description 授权码，来自 qd.login()。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。 */
+                    /** @description 一次性授权码，由前端/App 持用户登录态调 POST https://api.qiandao.com/signin/openapi/auth/generate-code（body {appId, scene:"openapi"}）换取，取响应的 data.code。被 Auth 服务消费后立即失效，且 5 分钟内有效（实测超时返回 code=10003「授权码错误或超过 5 分钟」）。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。 */
                     code?: string;
                 };
             };
@@ -699,7 +699,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -782,7 +782,7 @@ export interface operations {
                 id: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -792,7 +792,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已实测确认：使用 CLIENT_CREDENTIALS 换取的 app 级 token 也可正常调通本接口（HTTP 200 正常业务响应）。SDK 仍要求调用方显式传入某个 token（见 x-qdmp-token-required=true），是否传 app 级还是用户级由调用方决定，不是 SDK 自动 fallback。 */
+            /** @description 已实测确认：使用 CLIENT_CREDENTIALS 换取的应用凭证也可正常调通本接口（HTTP 200 正常业务响应）。SDK 仍要求调用方显式传入某个凭证（见 x-qdmp-token-required=true），传应用凭证还是用户授权凭证由调用方决定，不是 SDK 自动 fallback。 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -862,7 +862,7 @@ export interface operations {
                 id: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -976,7 +976,7 @@ export interface operations {
                 limit?: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -986,7 +986,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description 已实测确认：使用 CLIENT_CREDENTIALS 换取的 app 级 token 可真实调通本接口（HTTP 200 正常业务响应）。 */
+            /** @description 已实测确认：使用 CLIENT_CREDENTIALS 换取的应用凭证可真实调通本接口（HTTP 200 正常业务响应）。 */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -1066,7 +1066,7 @@ export interface operations {
                 id: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1169,7 +1169,7 @@ export interface operations {
                 limit?: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1261,7 +1261,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1347,7 +1347,7 @@ export interface operations {
                 offset: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1449,7 +1449,7 @@ export interface operations {
                 offset: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1551,7 +1551,7 @@ export interface operations {
                 offset: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1654,7 +1654,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1735,7 +1735,7 @@ export interface operations {
         parameters: {
             query?: never;
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
@@ -1823,7 +1823,7 @@ export interface operations {
                 limit: string;
             };
             header: {
-                /** @description 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。 */
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
                 "access-token": components["parameters"]["AccessTokenHeader"];
                 /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
                 "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];

@@ -36,7 +36,7 @@ public final class WishSpuGroup {
     return transport.post(
         ADD_ROUTE.getPath(),
         AuthScheme.fromWireValue(ADD_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         request,
         WishAdd200ResponseAllOfData.class);
   }
@@ -52,7 +52,7 @@ public final class WishSpuGroup {
     return transport.post(
         CANCEL_ROUTE.getPath(),
         AuthScheme.fromWireValue(CANCEL_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         request,
         WishAdd200ResponseAllOfData.class);
   }
@@ -68,7 +68,7 @@ public final class WishSpuGroup {
     return transport.get(
         LIST_ROUTE.getPath(),
         AuthScheme.fromWireValue(LIST_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         params.toQueryMap(),
         WishList200ResponseAllOfData.class);
   }

@@ -12,15 +12,15 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link QdmpAuth#code2Session}'s Javadoc promises "the full session: access token, refresh token,
- * expiry, and open ID", but the current implementation's malformed-body guard ({@code
+ * {@link QdmpAuth#getUserAccessToken}'s Javadoc promises "the full session: access token, refresh
+ * token, expiry, and open ID", but the current implementation's malformed-body guard ({@code
  * requireNonMalformed}) only checks {@code accessToken}/{@code expiresAt} -- it never looks at
  * {@code data.refreshToken} or {@code data.openId} at all. A response missing either field is
  * currently handed back to the caller as a session object with a silently-{@code null} (or empty)
  * refresh token / open ID, contradicting the documented contract. Both fields must be validated the
  * same way {@code accessToken}/{@code expiresAt} already are: missing or empty must throw.
  */
-class QdmpAuthCode2SessionFieldValidationTest {
+class QdmpAuthUserAccessTokenFieldValidationTest {
 
   private MockWebServer server;
 
@@ -36,7 +36,7 @@ class QdmpAuthCode2SessionFieldValidationTest {
   }
 
   @Test
-  void code2Session_missingRefreshToken_throws() {
+  void getUserAccessToken_missingRefreshToken_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -45,12 +45,12 @@ class QdmpAuthCode2SessionFieldValidationTest {
                     + "\"expiresAt\":\"1900000000\",\"openId\":\"open-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  void code2Session_emptyRefreshToken_throws() {
+  void getUserAccessToken_emptyRefreshToken_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -60,12 +60,12 @@ class QdmpAuthCode2SessionFieldValidationTest {
                     + "\"openId\":\"open-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  void code2Session_missingOpenId_throws() {
+  void getUserAccessToken_missingOpenId_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -74,12 +74,12 @@ class QdmpAuthCode2SessionFieldValidationTest {
                     + "\"expiresAt\":\"1900000000\",\"refreshToken\":\"ref\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  void code2Session_emptyOpenId_throws() {
+  void getUserAccessToken_emptyOpenId_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -88,7 +88,7 @@ class QdmpAuthCode2SessionFieldValidationTest {
                     + "\"expiresAt\":\"1900000000\",\"refreshToken\":\"ref\",\"openId\":\"\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 }

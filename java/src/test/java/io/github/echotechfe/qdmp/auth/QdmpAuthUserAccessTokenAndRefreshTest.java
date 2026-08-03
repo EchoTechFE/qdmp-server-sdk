@@ -19,12 +19,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code auth.code2Session(code)} (AUTHORIZATION_CODE grant) and {@code
+ * {@code auth.getUserAccessToken(code)} (AUTHORIZATION_CODE grant) and {@code
  * auth.refreshToken(refreshToken)} are one-shot calls: the SDK never caches the resulting
  * user-level tokens, unlike the app-level CLIENT_CREDENTIALS flow covered in {@link
- * QdmpAuthGetAccessTokenTest}.
+ * QdmpAuthGetAppAccessTokenTest}.
  */
-class QdmpAuthCodeSessionAndRefreshTest {
+class QdmpAuthUserAccessTokenAndRefreshTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -42,7 +42,8 @@ class QdmpAuthCodeSessionAndRefreshTest {
   }
 
   @Test
-  void code2Session_success_sendsAuthorizationCodeGrant_andReturnsFullSession() throws Exception {
+  void getUserAccessToken_success_sendsAuthorizationCodeGrant_andReturnsFullSession()
+      throws Exception {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -52,7 +53,7 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"refreshToken\":\"user-refresh-token\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    Code2SessionResult session = client.auth().code2Session("wx-login-code-abc");
+    UserAccessTokenResult session = client.auth().getUserAccessToken("wx-login-code-abc");
 
     assertThat(session.getAccessToken()).isEqualTo("user-access-token");
     assertThat(session.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
@@ -65,7 +66,7 @@ class QdmpAuthCodeSessionAndRefreshTest {
   }
 
   @Test
-  void code2Session_isNeverCached_repeatedCallsAlwaysHitTheNetwork() throws Exception {
+  void getUserAccessToken_isNeverCached_repeatedCallsAlwaysHitTheNetwork() throws Exception {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -82,8 +83,8 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"openId\":\"o-2\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    Code2SessionResult first = client.auth().code2Session("code-1");
-    Code2SessionResult second = client.auth().code2Session("code-2");
+    UserAccessTokenResult first = client.auth().getUserAccessToken("code-1");
+    UserAccessTokenResult second = client.auth().getUserAccessToken("code-2");
 
     assertThat(first.getAccessToken()).isEqualTo("tok-1");
     assertThat(second.getAccessToken()).isEqualTo("tok-2");
@@ -91,12 +92,12 @@ class QdmpAuthCodeSessionAndRefreshTest {
   }
 
   @Test
-  void code2Session_invalidCode_throwsQdmpApiError() {
+  void getUserAccessToken_invalidCode_throwsQdmpApiError() {
     server.enqueue(
         new MockResponse().setResponseCode(200).setBody("{\"code\":10003,\"message\":\"授权码错误\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("bad-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("bad-code"))
         .isInstanceOf(QdmpApiError.class)
         .satisfies(e -> assertThat(((QdmpApiError) e).getCode()).isEqualTo("10003"));
   }
@@ -148,19 +149,19 @@ class QdmpAuthCodeSessionAndRefreshTest {
    * Node SDK's {@code QdmpValidationError} check (see node/src/auth.ts).
    */
   @Test
-  void code2Session_nullCode_throwsQdmpValidationError_sendsNoRequest() {
+  void getUserAccessToken_nullCode_throwsQdmpValidationError_sendsNoRequest() {
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session(null))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken(null))
         .isInstanceOf(QdmpValidationError.class);
     assertThat(server.getRequestCount()).isEqualTo(0);
   }
 
   @Test
-  void code2Session_emptyCode_throwsQdmpValidationError_sendsNoRequest() {
+  void getUserAccessToken_emptyCode_throwsQdmpValidationError_sendsNoRequest() {
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session(""))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken(""))
         .isInstanceOf(QdmpValidationError.class);
     assertThat(server.getRequestCount()).isEqualTo(0);
   }
@@ -197,19 +198,20 @@ class QdmpAuthCodeSessionAndRefreshTest {
   }
 
   /**
-   * {@code code2Session} must reject a malformed "success" body the same way {@code
-   * getAccessToken()}'s {@code toCachedAppToken} already does (see {@link
-   * QdmpAuthGetAccessTokenTest#successCode_withNullData_throwsQdmpTransportException_notBareNpe}):
-   * code:"0" but no {@code data} at all must never be handed back to the caller as a silent {@code
-   * null} return value -- it must surface as a {@link QdmpTransportException}.
+   * {@code getUserAccessToken} must reject a malformed "success" body the same way {@code
+   * getAppAccessToken()}'s {@code toCachedAppToken} already does (see {@code
+   * successCode_withNullData_throwsQdmpTransportException_notBareNpe} in {@link
+   * QdmpAuthGetAppAccessTokenTest}): code:"0" but no {@code data} at all must never be handed back
+   * to the caller as a silent {@code null} return value -- it must surface as a {@link
+   * QdmpTransportException}.
    */
   @Test
-  void code2Session_successCode_withNullData_throwsQdmpTransportException() {
+  void getUserAccessToken_successCode_withNullData_throwsQdmpTransportException() {
     server.enqueue(
         new MockResponse().setResponseCode(200).setBody("{\"code\":\"0\",\"message\":\"ok\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("wx-login-code-abc"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("wx-login-code-abc"))
         .isInstanceOf(QdmpTransportException.class);
   }
 
@@ -219,7 +221,7 @@ class QdmpAuthCodeSessionAndRefreshTest {
    * {@code accessToken} is silently {@code null}.
    */
   @Test
-  void code2Session_successCode_withDataMissingAccessToken_throwsQdmpTransportException() {
+  void getUserAccessToken_successCode_withDataMissingAccessToken_throwsQdmpTransportException() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -229,7 +231,7 @@ class QdmpAuthCodeSessionAndRefreshTest {
                     + "\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("wx-login-code-abc"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("wx-login-code-abc"))
         .isInstanceOf(QdmpTransportException.class);
   }
 

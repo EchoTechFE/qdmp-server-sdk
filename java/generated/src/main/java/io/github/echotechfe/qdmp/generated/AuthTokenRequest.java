@@ -29,7 +29,7 @@ import com.fasterxml.jackson.annotation.JsonTypeName;
 @javax.annotation.Generated(value = "org.openapitools.codegen.languages.JavaClientCodegen", comments = "Generator version: 7.16.0")
 public class AuthTokenRequest {
   /**
-   * 授权类型：CLIENT_CREDENTIALS 或 AUTHORIZATION_CODE
+   * 凭证类型：CLIENT_CREDENTIALS（应用凭证）或 AUTHORIZATION_CODE（用户授权凭证）
    */
   public enum GrantTypeEnum {
     CLIENT_CREDENTIALS(String.valueOf("CLIENT_CREDENTIALS")),
@@ -89,7 +89,7 @@ public class AuthTokenRequest {
   }
 
   /**
-   * 授权类型：CLIENT_CREDENTIALS 或 AUTHORIZATION_CODE
+   * 凭证类型：CLIENT_CREDENTIALS（应用凭证）或 AUTHORIZATION_CODE（用户授权凭证）
    * @return grantType
    */
   @javax.annotation.Nonnull
@@ -164,7 +164,7 @@ public class AuthTokenRequest {
   }
 
   /**
-   * 授权码，来自 qd.login()。仅 grantType&#x3D;AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。
+   * 一次性授权码，由前端/App 持用户登录态调 POST https://api.qiandao.com/signin/openapi/auth/generate-code（body {appId, scene:\&quot;openapi\&quot;}）换取，取响应的 data.code。被 Auth 服务消费后立即失效，且 5 分钟内有效（实测超时返回 code&#x3D;10003「授权码错误或超过 5 分钟」）。仅 grantType&#x3D;AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。
    * @return code
    */
   @javax.annotation.Nullable

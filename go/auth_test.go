@@ -4,11 +4,12 @@ package qdmp_test
 // phase, not here):
 //
 //	client, err := qdmp.NewClient(qdmp.ClientOptions{AppID, AppSecret, BaseURL})
-//	token, err := client.Auth.GetAccessToken(ctx)          // app-level, cached + single-flight
-//	sess, err  := client.Auth.Code2Session(ctx, code)       // one-shot, never cached
+//	app, err   := client.Auth.GetAppAccessToken(ctx)          // app-level, cached + single-flight
+//	cred, err  := client.Auth.GetUserAccessToken(ctx, code)   // one-shot, never cached
 //	res, err   := client.Auth.RefreshToken(ctx, refreshToken) // one-shot, never cached
 //
-// qdmp.Code2SessionResult{AccessToken, RefreshToken, ExpiresAt, OpenID string}
+// qdmp.AppAccessTokenResult{AccessToken, ExpiresAt, RefreshToken, OpenID string}
+// qdmp.UserAccessTokenResult{AccessToken, RefreshToken, ExpiresAt, OpenID string}
 // qdmp.RefreshTokenResult{AccessToken, ExpiresAt string}
 // *qdmp.QdmpApiError{Code, Message, RequestID string; HTTPStatus int}
 
@@ -27,9 +28,9 @@ import (
 	"github.com/EchoTechFE/qdmp-server-sdk/go/generated"
 )
 
-// TestAuthGetAccessToken_Success verifies the happy path for the
+// TestAuthGetAppAccessToken_Success verifies the happy path for the
 // CLIENT_CREDENTIALS exchange: correct request shape in, correct token out.
-func TestAuthGetAccessToken_Success(t *testing.T) {
+func TestAuthGetAppAccessToken_Success(t *testing.T) {
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost || r.URL.Path != "/auth/v1/token" {
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
@@ -58,21 +59,21 @@ func TestAuthGetAccessToken_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "app-level-access-token" {
-		t.Fatalf("GetAccessToken() = %q, want %q", token, "app-level-access-token")
+	if appToken.AccessToken != "app-level-access-token" {
+		t.Fatalf("GetAppAccessToken().AccessToken = %q, want %q", appToken.AccessToken, "app-level-access-token")
 	}
 	if counter.Count() != 1 {
 		t.Fatalf("server hit %d times, want 1", counter.Count())
 	}
 }
 
-// TestAuthGetAccessToken_CachesUntilExpiry verifies the app-level token is
+// TestAuthGetAppAccessToken_CachesUntilExpiry verifies the app-level token is
 // cached: a second immediate call must not trigger a second HTTP exchange.
-func TestAuthGetAccessToken_CachesUntilExpiry(t *testing.T) {
+func TestAuthGetAppAccessToken_CachesUntilExpiry(t *testing.T) {
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, float64(0), "ok", "req-1", map[string]any{
 			"accessToken": "cached-token",
@@ -83,28 +84,28 @@ func TestAuthGetAccessToken_CachesUntilExpiry(t *testing.T) {
 	client := newTestClient(t, srv.URL)
 	ctx := context.Background()
 
-	first, err := client.Auth.GetAccessToken(ctx)
+	first, err := client.Auth.GetAppAccessToken(ctx)
 	if err != nil {
-		t.Fatalf("first GetAccessToken() error = %v", err)
+		t.Fatalf("first GetAppAccessToken() error = %v", err)
 	}
-	second, err := client.Auth.GetAccessToken(ctx)
+	second, err := client.Auth.GetAppAccessToken(ctx)
 	if err != nil {
-		t.Fatalf("second GetAccessToken() error = %v", err)
+		t.Fatalf("second GetAppAccessToken() error = %v", err)
 	}
-	if first != second {
-		t.Fatalf("cached token changed across calls: %q != %q", first, second)
+	if *first != *second {
+		t.Fatalf("cached credential changed across calls: %+v != %+v", first, second)
 	}
 	if counter.Count() != 1 {
 		t.Fatalf("server hit %d times across two calls, want 1 (token should be cached)", counter.Count())
 	}
 }
 
-// TestAuthGetAccessToken_ConcurrentSingleFlight simulates N goroutines all
+// TestAuthGetAppAccessToken_ConcurrentSingleFlight simulates N goroutines all
 // racing to fetch the app-level token from a cold cache. Without a
 // single-flight guard this would hit the token endpoint N times and risk
 // rate-limiting/thundering-herd against the real qdmp gateway; the SDK must
 // collapse them into exactly one outbound exchange.
-func TestAuthGetAccessToken_ConcurrentSingleFlight(t *testing.T) {
+func TestAuthGetAppAccessToken_ConcurrentSingleFlight(t *testing.T) {
 	const goroutines = 50
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-1", map[string]any{
@@ -117,23 +118,23 @@ func TestAuthGetAccessToken_ConcurrentSingleFlight(t *testing.T) {
 	ctx := context.Background()
 
 	var wg sync.WaitGroup
-	results := make([]string, goroutines)
+	results := make([]*qdmp.AppAccessTokenResult, goroutines)
 	errs := make([]error, goroutines)
 	wg.Add(goroutines)
 	for i := 0; i < goroutines; i++ {
 		go func(i int) {
 			defer wg.Done()
-			results[i], errs[i] = client.Auth.GetAccessToken(ctx)
+			results[i], errs[i] = client.Auth.GetAppAccessToken(ctx)
 		}(i)
 	}
 	wg.Wait()
 
 	for i, err := range errs {
 		if err != nil {
-			t.Fatalf("goroutine %d: GetAccessToken() error = %v", i, err)
+			t.Fatalf("goroutine %d: GetAppAccessToken() error = %v", i, err)
 		}
-		if results[i] != "single-flight-token" {
-			t.Fatalf("goroutine %d: token = %q, want %q", i, results[i], "single-flight-token")
+		if results[i].AccessToken != "single-flight-token" {
+			t.Fatalf("goroutine %d: token = %q, want %q", i, results[i].AccessToken, "single-flight-token")
 		}
 	}
 	if counter.Count() != 1 {
@@ -141,14 +142,14 @@ func TestAuthGetAccessToken_ConcurrentSingleFlight(t *testing.T) {
 	}
 }
 
-// TestAuthCode2Session_Success verifies the AUTHORIZATION_CODE exchange and,
+// TestAuthGetUserAccessToken_Success verifies the AUTHORIZATION_CODE exchange and,
 // critically, that expiresAt round-trips as a *string* end-to-end — this
 // repository has a confirmed-by-capture rule that int64/uint64 wire values
 // are strings, and a naive numeric-conversion implementation would corrupt
 // this value silently.
-func TestAuthCode2Session_Success(t *testing.T) {
+func TestAuthGetUserAccessToken_Success(t *testing.T) {
 	// Computed relative to time.Now() (rather than a hardcoded absolute
-	// timestamp) so this test keeps exercising "a genuinely fresh session"
+	// timestamp) so this test keeps exercising "a genuinely fresh credential"
 	// indefinitely, instead of silently starting to fail once real
 	// wall-clock time catches up to a fixed constant (as happened once
 	// already with a previous hardcoded value here).
@@ -161,8 +162,8 @@ func TestAuthCode2Session_Success(t *testing.T) {
 		if body["grantType"] != "AUTHORIZATION_CODE" {
 			t.Fatalf("grantType = %v, want AUTHORIZATION_CODE", body["grantType"])
 		}
-		if body["code"] != "wx-login-code-abc" {
-			t.Fatalf("code = %v, want wx-login-code-abc", body["code"])
+		if body["code"] != "auth-code-abc" {
+			t.Fatalf("code = %v, want auth-code-abc", body["code"])
 		}
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-2", map[string]any{
 			"accessToken":  "user-level-access-token",
@@ -174,21 +175,21 @@ func TestAuthCode2Session_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "wx-login-code-abc")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "auth-code-abc")
 	if err != nil {
-		t.Fatalf("Code2Session() error = %v, want nil", err)
+		t.Fatalf("GetUserAccessToken() error = %v, want nil", err)
 	}
-	if sess.AccessToken != "user-level-access-token" {
-		t.Fatalf("AccessToken = %q", sess.AccessToken)
+	if cred.AccessToken != "user-level-access-token" {
+		t.Fatalf("AccessToken = %q", cred.AccessToken)
 	}
-	if sess.RefreshToken != "user-level-refresh-token" {
-		t.Fatalf("RefreshToken = %q", sess.RefreshToken)
+	if cred.RefreshToken != "user-level-refresh-token" {
+		t.Fatalf("RefreshToken = %q", cred.RefreshToken)
 	}
-	if sess.ExpiresAt != wantExpiresAt {
-		t.Fatalf("ExpiresAt = %q, want the exact wire string %q (must not be converted to a number)", sess.ExpiresAt, wantExpiresAt)
+	if cred.ExpiresAt != wantExpiresAt {
+		t.Fatalf("ExpiresAt = %q, want the exact wire string %q (must not be converted to a number)", cred.ExpiresAt, wantExpiresAt)
 	}
-	if sess.OpenID != "user-openid-1" {
-		t.Fatalf("OpenID = %q", sess.OpenID)
+	if cred.OpenID != "user-openid-1" {
+		t.Fatalf("OpenID = %q", cred.OpenID)
 	}
 }
 
@@ -222,11 +223,11 @@ func TestAuthRefreshToken_HTTP200BusinessFailure(t *testing.T) {
 	}
 }
 
-// TestAuthGetAccessToken_ErrorDoesNotLeakAppSecret drives a real failure
+// TestAuthGetAppAccessToken_ErrorDoesNotLeakAppSecret drives a real failure
 // through the exchange (10002: 密钥不匹配) and asserts the resulting error's
 // message never echoes the appSecret that was sent on the wire, even though
 // the mock server itself did receive it (sanity-checked below).
-func TestAuthGetAccessToken_ErrorDoesNotLeakAppSecret(t *testing.T) {
+func TestAuthGetAppAccessToken_ErrorDoesNotLeakAppSecret(t *testing.T) {
 	const secret = "test-app-secret-do-not-leak"
 	var sawSecretOnWire bool
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -236,9 +237,9 @@ func TestAuthGetAccessToken_ErrorDoesNotLeakAppSecret(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.Auth.GetAccessToken(context.Background())
+	_, err := client.Auth.GetAppAccessToken(context.Background())
 	if err == nil {
-		t.Fatalf("GetAccessToken() error = nil, want an error because code=10002")
+		t.Fatalf("GetAppAccessToken() error = nil, want an error because code=10002")
 	}
 	if !sawSecretOnWire {
 		t.Fatalf("test setup broken: mock server never actually received the appSecret")
@@ -248,13 +249,13 @@ func TestAuthGetAccessToken_ErrorDoesNotLeakAppSecret(t *testing.T) {
 	}
 }
 
-// TestAuthGetAccessToken_ProactivelyRefreshesWithinBuffer verifies the
+// TestAuthGetAppAccessToken_ProactivelyRefreshesWithinBuffer verifies the
 // tokenRefreshBufferSeconds (300s) early-refresh boundary in cachedValid:
 // a token that has not yet technically expired, but sits within the 300s
 // buffer, must still trigger a fresh exchange rather than being served from
 // cache — the buffer exists precisely so callers never observe a token that
 // expires mid-flight.
-func TestAuthGetAccessToken_ProactivelyRefreshesWithinBuffer(t *testing.T) {
+func TestAuthGetAppAccessToken_ProactivelyRefreshesWithinBuffer(t *testing.T) {
 	now := time.Now().Unix()
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-buffer-1", map[string]any{
@@ -265,7 +266,7 @@ func TestAuthGetAccessToken_ProactivelyRefreshesWithinBuffer(t *testing.T) {
 	srv := startServer(t, counter)
 	// A caller-supplied TokenStore, seeded directly (bypassing any HTTP
 	// exchange) with a token that expires in 250s: inside the 300s buffer,
-	// so GetAccessToken must treat it as not-cached-valid and refresh, even
+	// so GetAppAccessToken must treat it as not-cached-valid and refresh, even
 	// though time.Now().Unix() < that expiresAt.
 	store := &customTokenStore{}
 	store.Set(qdmp.TokenEntry{AccessToken: "stale-within-buffer-token", ExpiresAt: now + 250})
@@ -279,22 +280,22 @@ func TestAuthGetAccessToken_ProactivelyRefreshesWithinBuffer(t *testing.T) {
 		t.Fatalf("qdmp.NewClient() error = %v", err)
 	}
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "freshly-refreshed-token" {
-		t.Fatalf("GetAccessToken() = %q, want the proactively refreshed token %q, not the stale within-buffer one", token, "freshly-refreshed-token")
+	if appToken.AccessToken != "freshly-refreshed-token" {
+		t.Fatalf("GetAppAccessToken().AccessToken = %q, want the proactively refreshed token %q, not the stale within-buffer one", appToken.AccessToken, "freshly-refreshed-token")
 	}
 	if counter.Count() != 1 {
 		t.Fatalf("server hit %d times, want exactly 1 (proactive refresh must happen)", counter.Count())
 	}
 }
 
-// TestAuthGetAccessToken_CachedOutsideBuffer is the complementary boundary
+// TestAuthGetAppAccessToken_CachedOutsideBuffer is the complementary boundary
 // case: a token expiring just outside the 300s buffer must be served from
 // cache with zero HTTP calls.
-func TestAuthGetAccessToken_CachedOutsideBuffer(t *testing.T) {
+func TestAuthGetAppAccessToken_CachedOutsideBuffer(t *testing.T) {
 	now := time.Now().Unix()
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
 		t.Fatalf("server should never have been called: token is valid outside the refresh buffer")
@@ -312,12 +313,12 @@ func TestAuthGetAccessToken_CachedOutsideBuffer(t *testing.T) {
 		t.Fatalf("qdmp.NewClient() error = %v", err)
 	}
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "still-fresh-token" {
-		t.Fatalf("GetAccessToken() = %q, want the cached token %q", token, "still-fresh-token")
+	if appToken.AccessToken != "still-fresh-token" {
+		t.Fatalf("GetAppAccessToken().AccessToken = %q, want the cached token %q", appToken.AccessToken, "still-fresh-token")
 	}
 	if counter.Count() != 0 {
 		t.Fatalf("server hit %d times, want 0 (token is outside the refresh buffer)", counter.Count())
@@ -328,7 +329,7 @@ func TestAuthGetAccessToken_CachedOutsideBuffer(t *testing.T) {
 // TestAuthRefreshToken_HTTP200BusinessFailure above (which only covers the
 // failure path).
 func TestAuthRefreshToken_Success(t *testing.T) {
-	// See TestAuthCode2Session_Success for why this is computed relative to
+	// See TestAuthGetUserAccessToken_Success for why this is computed relative to
 	// time.Now() instead of a hardcoded absolute timestamp.
 	wantExpiresAt := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
 	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
@@ -365,22 +366,22 @@ func TestAuthRefreshToken_Success(t *testing.T) {
 	}
 }
 
-// TestAuthCode2Session_Failure is Code2Session's failure-path counterpart to
-// TestAuthCode2Session_Success above (which only covers the happy path): a
+// TestAuthGetUserAccessToken_Failure is GetUserAccessToken's failure-path counterpart to
+// TestAuthGetUserAccessToken_Success above (which only covers the happy path): a
 // consumed/invalid AUTHORIZATION_CODE must surface as a *QdmpApiError, never
 // a zero-value result mistaken for success.
-func TestAuthCode2Session_Failure(t *testing.T) {
+func TestAuthGetUserAccessToken_Failure(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		businessEnvelope(w, http.StatusOK, float64(10001), "code 已使用或已过期", "req-code2session-fail", nil)
+		businessEnvelope(w, http.StatusOK, float64(10001), "code 已使用或已过期", "req-user-token-fail", nil)
 	}))
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "already-consumed-code")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "already-consumed-code")
 	if err == nil {
-		t.Fatalf("Code2Session() error = nil, want an error because code=10001")
+		t.Fatalf("GetUserAccessToken() error = nil, want an error because code=10001")
 	}
-	if sess != nil {
-		t.Fatalf("Code2Session() result = %+v, want nil on failure", sess)
+	if cred != nil {
+		t.Fatalf("GetUserAccessToken() result = %+v, want nil on failure", cred)
 	}
 	apiErr, ok := err.(*qdmp.QdmpApiError)
 	if !ok {
@@ -457,7 +458,7 @@ func (s *customTokenStore) Clear() {
 	s.has = false
 }
 
-// TestNewClient_CustomTokenStore verifies GetAccessToken actually reads from
+// TestNewClient_CustomTokenStore verifies GetAppAccessToken actually reads from
 // and writes to a caller-supplied TokenStore (the multi-instance-deployment
 // use case documented on the TokenStore type), not just the built-in
 // in-process default.
@@ -480,12 +481,12 @@ func TestNewClient_CustomTokenStore(t *testing.T) {
 		t.Fatalf("qdmp.NewClient() error = %v", err)
 	}
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "custom-store-token" {
-		t.Fatalf("GetAccessToken() = %q, want %q", token, "custom-store-token")
+	if appToken.AccessToken != "custom-store-token" {
+		t.Fatalf("GetAppAccessToken().AccessToken = %q, want %q", appToken.AccessToken, "custom-store-token")
 	}
 	if store.setHits != 1 {
 		t.Fatalf("custom store Set() called %d times, want 1 (the exchange result must be written through the injected store)", store.setHits)
@@ -493,10 +494,62 @@ func TestNewClient_CustomTokenStore(t *testing.T) {
 
 	// A second call must be served from the injected store's cache, not a
 	// fresh exchange.
-	if _, err := client.Auth.GetAccessToken(context.Background()); err != nil {
-		t.Fatalf("second GetAccessToken() error = %v", err)
+	if _, err := client.Auth.GetAppAccessToken(context.Background()); err != nil {
+		t.Fatalf("second GetAppAccessToken() error = %v", err)
 	}
 	if counter.Count() != 1 {
 		t.Fatalf("server hit %d times across two calls, want 1 (custom store must be consulted for caching)", counter.Count())
+	}
+}
+
+// TestAuthGetAppAccessToken_CacheHitIsAsCompleteAsFreshExchange pins down
+// CONTRACT.md §1.1's core requirement: the app-level credential is returned
+// whole (accessToken + expiresAt + refreshToken + openId), and the call
+// served from the TokenStore cache returns exactly the same object as the
+// call that performed the exchange. Caching only accessToken/expiresAt — the
+// shape this replaced — would make the second call silently drop
+// refreshToken, so a caller's behavior would depend on whether it happened
+// to be the one that triggered the exchange.
+//
+// The mock mirrors the captured CLIENT_CREDENTIALS response: a genuinely
+// non-empty refreshToken and an openId that is the empty string (an
+// app-level credential belongs to no user), neither of which may be rejected
+// as invalid.
+func TestAuthGetAppAccessToken_CacheHitIsAsCompleteAsFreshExchange(t *testing.T) {
+	wantExpiresAt := strconv.FormatInt(time.Now().Add(time.Hour).Unix(), 10)
+	counter := newRequestCounter(func(w http.ResponseWriter, r *http.Request) {
+		businessEnvelope(w, http.StatusOK, "0", "ok", "req-app-complete-1", map[string]any{
+			"accessToken":  "app-complete-access-token",
+			"expiresAt":    wantExpiresAt,
+			"refreshToken": "app-complete-refresh-token",
+			"openId":       "",
+		})
+	})
+	srv := startServer(t, counter)
+	client := newTestClient(t, srv.URL)
+
+	fresh, err := client.Auth.GetAppAccessToken(context.Background())
+	if err != nil {
+		t.Fatalf("first GetAppAccessToken() error = %v, want nil (an empty openId must not be rejected)", err)
+	}
+	want := qdmp.AppAccessTokenResult{
+		AccessToken:  "app-complete-access-token",
+		ExpiresAt:    wantExpiresAt,
+		RefreshToken: "app-complete-refresh-token",
+		OpenID:       "",
+	}
+	if *fresh != want {
+		t.Fatalf("freshly exchanged credential = %+v, want %+v", *fresh, want)
+	}
+
+	cached, err := client.Auth.GetAppAccessToken(context.Background())
+	if err != nil {
+		t.Fatalf("second GetAppAccessToken() error = %v, want nil", err)
+	}
+	if counter.Count() != 1 {
+		t.Fatalf("server hit %d times across two calls, want 1 (the second call must come from the cache)", counter.Count())
+	}
+	if *cached != *fresh {
+		t.Fatalf("cache-hit credential = %+v, want it identical to the freshly exchanged one %+v", *cached, *fresh)
 	}
 }

@@ -1,6 +1,30 @@
 # qdmp-server-sdk
 
-[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一 token 生命周期管理 + 类型安全的业务接口封装。
+[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一凭证生命周期管理 + 类型安全的业务接口封装。
+
+## 两种凭证
+
+OpenAPI 的 token 都由 Auth 服务的 `POST /auth/v1/token` 签发，按使用场景分两种：
+
+| | 应用凭证 | 用户授权凭证 |
+|---|---|---|
+| `grantType` | `CLIENT_CREDENTIALS` | `AUTHORIZATION_CODE` |
+| 代表谁 | 这个开放平台应用，不代表任何用户 | 某个真实登录用户，绑定 `openId` |
+| 用在哪 | 开发者内部调试、服务端联调、不需要用户身份的后台任务 | 应用上线后代表用户调业务接口——**日常调用全程用它** |
+| 怎么拿 | `appId` + `appSecret` 直接换 | 先拿一次性授权码，再用 `appId` + `appSecret` + `code` 换 |
+| 有效期 | accessToken 7200 秒 | accessToken 7200 秒，refreshToken 2592000 秒（30 天） |
+
+应用凭证换不到用户身份，也调不了需要校验用户授权的接口，别拿它顶替用户授权凭证。
+
+## 完整流程
+
+用户授权凭证要两步换，第一步在前端、第二步在你的服务端：
+
+1. **前端/App 拿一次性授权码**：持用户登录态请求 `POST https://api.qiandao.com/signin/openapi/auth/generate-code`，
+   Header 带 `Authorization: Bearer <用户登录态 token>`，Body 传 `{"appId": "app_xxx", "scene": "openapi"}`，
+   拿到 `data.code`。这一步需要用户登录态，本 SDK 不封装。
+2. **服务端换用户授权凭证**：把 `code` 传给下面的 `getUserAccessToken`。授权码是一次性的，**5 分钟内有效**，被 Auth 消费后立即失效。
+3. **调业务接口**：用换到的 accessToken，过期前 SDK 自动拿 refreshToken 续期。
 
 ## Node.js
 
@@ -16,21 +40,29 @@ const qdmp = new QdmpClient({
   appSecret: process.env.QDMP_APP_SECRET!,
 })
 
-// 小程序端 wx.login() 拿到 code 后，后端用它换用户 session（不缓存，自己持久化）
-const session = await qdmp.auth.code2Session(code)
+// 前端传来一次性授权码，服务端换用户授权凭证并落库
+const credential = await qdmp.auth.getUserAccessToken(code)
+await db.saveCredential(credential.openId, credential)
 
-// 用户级 accessToken 调业务接口，ctx.accessToken 必填
-const me = await qdmp.user.me({ accessToken: session.accessToken })
+// 绑定用户授权凭证，之后业务调用不用再传 token；到期前自动续期，续期后回写你的库
+const asUser = qdmp.withUserCredential({
+  ...credential,
+  onRefresh: token => db.updateCredential(credential.openId, token),
+})
+
+const me = await asUser.user.me()
+await asUser.mark.add({ spuId: '123', rating: { value: 5 } })
 
 try {
-  await qdmp.mark.add({ accessToken: session.accessToken }, { spuId: '123', rating: { value: 5 } })
+  await asUser.wishspu.list({ offset: '0', limit: '20' })
 } catch (err) {
   if (err instanceof QdmpApiError) console.error(err.code, err.message, err.httpStatus)
   else if (err instanceof QdmpValidationError) console.error('本地参数错误：', err.message)
 }
 
-// app 级 token 只在需要时显式换取（例如可选的 app-token 兜底调用场景）
-const appToken = await qdmp.auth.getAccessToken()
+// 应用凭证，开发调试/后台任务才需要
+const appCredential = await qdmp.auth.getAppAccessToken()
+// => { accessToken, expiresAt, refreshToken, openId }（openId 恒为空串）
 ```
 
 失败统一抛 `QdmpApiError`（业务失败）或 `QdmpValidationError`（本地参数校验失败，不发请求）。
@@ -50,17 +82,21 @@ QdmpClient qdmp = new QdmpClient(
         .appSecret(System.getenv("QDMP_APP_SECRET"))
         .build());
 
-// 用 code 换用户 session（SDK 不缓存，自行持久化）
-Code2SessionResult session = qdmp.auth().code2Session(code);
+UserAccessTokenResult credential = qdmp.auth().getUserAccessToken(code);
+db.saveCredential(credential.getOpenId(), credential);
 
-// QdmpContext.of(accessToken) 是唯一入口，空/非法 token 在构造期就失败
-QdmpContext ctx = QdmpContext.of(session.getAccessToken());
-UserMe200ResponseAllOfData me = qdmp.user().me(ctx);
+QdmpUserClient asUser = qdmp.withUserCredential(
+    UserCredentialOptions.builder()
+        .accessToken(credential.getAccessToken())
+        .refreshToken(credential.getRefreshToken())
+        .expiresAt(credential.getExpiresAtEpochSeconds())
+        .onRefresh(token -> db.updateCredential(credential.getOpenId(), token))
+        .build());
 
-qdmp.mark().add(ctx, new MarkAddRequest().spuId("123"));
+UserMe200ResponseAllOfData me = asUser.user().me();
+asUser.mark().add(new MarkAddRequest().spuId("123"));
 
-// app 级 token 显式换取
-String appToken = qdmp.auth().getAccessToken();
+AppAccessTokenResult appCredential = qdmp.auth().getAppAccessToken();
 ```
 
 业务失败抛 `QdmpApiError`，传输层异常抛 `QdmpTransportException`，本地参数校验失败抛 `QdmpValidationError`（均在 `io.github.echotechfe.qdmp.errors` 包下）。
@@ -77,36 +113,51 @@ client, err := qdmp.NewClient(qdmp.ClientOptions{
     AppSecret: os.Getenv("QDMP_APP_SECRET"),
 })
 
-// 用 code 换用户 session（SDK 不缓存，自行持久化）
-session, err := client.Auth.Code2Session(ctx, code)
+credential, err := client.Auth.GetUserAccessToken(ctx, code)
+db.SaveCredential(credential.OpenID, credential)
 
-// WithAccessToken 派生一个绑定了该 token 的子 client，拿不到 token 就构造不出可用的调用入口
-asUser := client.WithAccessToken(session.AccessToken)
+asUser := client.WithUserCredential(qdmp.UserCredentialOptions{
+    AccessToken:  credential.AccessToken,
+    RefreshToken: credential.RefreshToken,
+    ExpiresAt:    credential.ExpiresAt,
+    OnRefresh: func(ctx context.Context, t qdmp.RefreshedUserToken) error {
+        return db.UpdateCredential(credential.OpenID, t)
+    },
+})
+
 me, err := asUser.User.Me(ctx)
 _, err = asUser.Mark.Add(ctx, generated.MarkAddJSONBody{SpuId: "123"})
 
-// app 级 token 只在根 client 上，显式换取
-appToken, err := client.Auth.GetAccessToken(ctx)
+appCredential, err := client.Auth.GetAppAccessToken(ctx)
 ```
 
-业务失败返回 `*qdmp.QdmpApiError`，缺 token 返回哨兵错误 `qdmp.ErrAccessTokenRequired`（`errors.Is` 判断），均是普通 `error`，不 panic。
+业务失败返回 `*qdmp.QdmpApiError`，缺凭证返回哨兵错误 `qdmp.ErrAccessTokenRequired`（`errors.Is` 判断），均是普通 `error`，不 panic。
 
-## Token 生命周期模型
+## 凭证生命周期模型
 
-- **App 级 token（`CLIENT_CREDENTIALS`）**：SDK 自动缓存 + 到期前 300 秒刷新 + 单飞锁防并发重复换取，持久化走可插拔的 `TokenStore`（默认内存实现，可换 Redis 等共享存储）。调用方只需要 `auth.getAccessToken()`。
-- **用户级 token（`AUTHORIZATION_CODE` 换来的）**：SDK 不缓存，每次调用由调用方显式传入——一个进程要服务海量终端用户，SDK 无法替调用方判断"这次调用是哪个用户"，这只有调用方自己的 session/DB 知道。
-- SDK 不做业务请求的自动重试/401 恢复：用户级 token 由调用方持有，SDK 直接把 `QdmpApiError`（`httpStatus=401`）透传给调用方处理。
-- 判断调用是否成功统一看响应体 `code === '0'`，不看 HTTP 状态码——实测 `refreshToken` 过期是 HTTP 200 + `code:10008`，access-token 失效是 HTTP 401 + `code:10005`。
+- **用户授权凭证**（主线）：`withUserCredential` 绑定一份凭证后，SDK 到期前 300 秒自动用 refreshToken 续期；
+  业务调用撞上 HTTP 401 + `10005`/`10006`（access_token 失效/过期）时，续期一次并重试该请求一次。
+  续期成功后回调 `onRefresh`，把新 accessToken 落到你自己的库里——SDK 不替你持久化，一个进程服务海量终端用户，
+  只有你的 session/DB 知道这次调用属于哪个用户。同一份凭证上的并发调用只会触发一次续期。
+- **续期不换 refreshToken**：`/auth/v1/refresh` 只返回新的 accessToken 和 expiresAt，refreshToken 保持不变。
+  它本身失效时返回 HTTP 200 + `10007`/`10008`，此时凭证已无法挽救，需要重新走一次「拿授权码 → 换凭证」。
+- **应用凭证**：`getAppAccessToken()` 自动缓存 + 到期前 300 秒重新换取 + 单飞锁防并发重复换取，
+  持久化走可插拔的 `TokenStore`（默认内存实现，多实例部署可换 Redis 等共享存储）。
+  它返回的是完整凭证 `{accessToken, expiresAt, refreshToken, openId}`——应用凭证响应里同样带 refreshToken，
+  只是 `openId` 恒为空串。SDK 自己不拿它续期（到期直接重换），但如实交给你，要不要自己续期由你决定。
+- **成功判定只看响应体 `code === '0'`，不看 HTTP 状态码**——refreshToken 过期是 HTTP 200 + `10008`，
+  access_token 失效才是 HTTP 401 + `10006`。
+- 除上面那次 401 续期重试外，SDK 不做任何自动重试。
 
-## 各分组 token 要求
+## 各分组凭证要求
 
 | 分组 | 要求 |
 |---|---|
-| `auth.token` / `auth.refresh` | 不需要 token（用 appId/appSecret） |
-| `user.me` / `mark.*` / `wishspu.*` | 必须传用户级 accessToken，缺失本地直接报错，不发请求 |
-| `island.*` / `spu.*` / `tag.*` / `genai.*` | 默认必须传用户级 accessToken；无证据表明 app 级 token 能安全调用，v1 不做默认 fallback |
+| `auth.*` | 不需要凭证（用 appId/appSecret 或 refreshToken） |
+| `user.me` / `mark.*` / `wishspu.*` | 必须是用户授权凭证，缺失时本地直接报错，不发请求 |
+| `island.*` / `spu.*` / `tag.*` / `genai.*` | 应用凭证也实测调通过，但 SDK 不做静默 fallback，传哪种由调用方决定 |
 
-上述所有分组都可以显式把 `auth.getAccessToken()` 换出的 app 级 token 当作 accessToken 传入，但 SDK 不会静默做这个 fallback。`x-echo-qdmp-version` 头只在 `standard` 认证方案下发送，`genai` 分组用另一对头，`auth` 分组不需要——三端都从 `shared/generated/route-meta.json` 读取每个 operation 的 `authScheme`/`tokenRequired`。
+`x-echo-qdmp-version` 头只在 `standard` 鉴权方案下发送，`genai` 分组用 `x-openapi-access-token` + `x-openapi-app-id` 另一对头，`auth` 分组不需要——三端都从 `shared/generated/route-meta.json` 读取每个 operation 的 `authScheme`/`tokenRequired`。
 
 ## 底层依赖
 

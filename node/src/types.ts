@@ -18,12 +18,26 @@ export interface QdmpContext {
 
 // ---- auth ----
 
-export interface AppTokenData {
+/** The complete 应用凭证 (grantType=CLIENT_CREDENTIALS) handed back to
+ * callers. The server returns all four fields for this grant too — a real,
+ * non-empty `refreshToken` and an always-empty `openId` (no end user is
+ * involved) — so callers get the full credential, not just the token
+ * string. */
+export interface AppAccessTokenData {
   accessToken: string;
   expiresAt: string;
+  /** Non-empty in practice, but deliberately not validated: the SDK renews
+   * the 应用凭证 by re-running the CLIENT_CREDENTIALS grant, so this value is
+   * only passed through for callers who want to renew it themselves. */
+  refreshToken: string;
+  /** Always an empty string for CLIENT_CREDENTIALS — kept so the shape
+   * matches {@link UserAccessTokenData}. */
+  openId: string;
 }
 
-export interface SessionData {
+/** The complete 用户授权凭证 (grantType=AUTHORIZATION_CODE). Bound to a real
+ * end user, so `refreshToken`/`openId` are both required to be non-empty. */
+export interface UserAccessTokenData {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
@@ -32,7 +46,7 @@ export interface SessionData {
 
 export interface RefreshTokenData {
   accessToken: string;
-  expiresAt?: string;
+  expiresAt: string;
 }
 
 // ---- user ----

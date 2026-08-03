@@ -27,7 +27,7 @@ import {
   expectFailure,
 } from './helpers/mock-http.js';
 
-void test('auth.getAccessToken: HTTP 200 + {code:0} 但 expiresAt 是早已过期的时间戳（"1"，1970年）时应 reject，且不得把这个已过期 token 当作新鲜缓存写入（下一次调用仍会真实重新换取）', async () => {
+void test('auth.getAppAccessToken: HTTP 200 + {code:0} 但 expiresAt 是早已过期的时间戳（"1"，1970年）时应 reject，且不得把这个已过期 token 当作新鲜缓存写入（下一次调用仍会真实重新换取）', async () => {
   const {mockAgent, pool} = createMockAgent();
   pool
     .intercept({path: '/auth/v1/token', method: 'POST'})
@@ -42,7 +42,7 @@ void test('auth.getAccessToken: HTTP 200 + {code:0} 但 expiresAt 是早已过�
     dispatcher: mockAgent,
   });
 
-  await expectFailure(() => client.auth.getAccessToken());
+  await expectFailure(() => client.auth.getAppAccessToken());
 
   // 验证这个"已过期即到达"的坏值没有被当作新鲜 token 缓存下来：只注册这一个
   // 新拦截器，若上一次的失败结果被误当成功缓存，这里就不会真的再发一次 HTTP
@@ -55,9 +55,9 @@ void test('auth.getAccessToken: HTTP 200 + {code:0} 但 expiresAt 是早已过�
     }),
   );
 
-  const token = await client.auth.getAccessToken();
+  const token = await client.auth.getAppAccessToken();
   assert.equal(
-    token,
+    token.accessToken,
     'app-token-good',
     '前一次已过期 token 被拒绝之后，下一次调用应当真实重新发起 CLIENT_CREDENTIALS 换取，而不是复用坏缓存',
   );
@@ -68,11 +68,11 @@ void test('auth.getAccessToken: HTTP 200 + {code:0} 但 expiresAt 是早已过�
   );
 });
 
-// 回归测试（codex 收敛检查轮发现）：code2Session/refreshToken 这两个"一次性、
+// 回归测试（codex 收敛检查轮发现）：getUserAccessToken/refreshToken 这两个"一次性、
 // 不缓存"的路径同样只校验 expiresAt 是否语法合法（非负整数字符串），没有校验
 // 它是否早已过期——一次性会话/token 虽然不走本 SDK 的缓存，但如果早已过期就
 // 返回给调用方，调用方可能会把这个"看起来成功"的死会话持久化下来。
-void test('auth.code2Session: expiresAt 是早已过期的时间戳（"1"）时应 reject', async () => {
+void test('auth.getUserAccessToken: expiresAt 是早已过期的时间戳（"1"）时应 reject', async () => {
   const {mockAgent, pool} = createMockAgent();
   pool.intercept({path: '/auth/v1/token', method: 'POST'}).reply(
     200,
@@ -90,7 +90,7 @@ void test('auth.code2Session: expiresAt 是早已过期的时间戳（"1"）时�
     dispatcher: mockAgent,
   });
 
-  await expectFailure(() => client.auth.code2Session('wx-login-code-abc'));
+  await expectFailure(() => client.auth.getUserAccessToken('auth-code-abc'));
 });
 
 void test('auth.refreshToken: expiresAt 是早已过期的时间戳（"1"）时应 reject', async () => {

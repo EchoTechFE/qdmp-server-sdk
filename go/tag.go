@@ -46,12 +46,11 @@ func (g *TagGroup) Detail(ctx context.Context, params generated.TagDetailParams)
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/tag/v1/detail",
-		query:       query,
-		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/tag/v1/detail",
+		query:      query,
+		authScheme: authSchemeStandard,
 	})
 	if err != nil {
 		return nil, err
@@ -78,12 +77,11 @@ func (g *TagGroup) Search(ctx context.Context, params generated.TagSearchParams)
 	setIfNotNil(query, "offset", params.Offset)
 	setIfNotNil(query, "limit", params.Limit)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
-		method:      http.MethodGet,
-		path:        "/tag/v1/search",
-		query:       query,
-		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+	data, err := g.uc.doRequest(ctx, requestParams{
+		method:     http.MethodGet,
+		path:       "/tag/v1/search",
+		query:      query,
+		authScheme: authSchemeStandard,
 	})
 	if err != nil {
 		return nil, err
