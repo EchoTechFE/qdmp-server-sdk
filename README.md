@@ -16,14 +16,16 @@ const qdmp = new QdmpClient({
   appSecret: process.env.QDMP_APP_SECRET!,
 })
 
-// 前端 qd.login() 拿到的一次性授权码传到服务端，换用户授权凭证并落库
+// 前端 qd.login() 拿到的一次性授权码传到服务端，换用户授权凭证
 const credential = await qdmp.auth.getUserAccessToken(code)
-await db.saveCredential(credential.openId, credential)
+// => { accessToken, refreshToken, expiresAt, openId }，自己按 openId 存起来
 
-// 绑定用户授权凭证，之后业务调用不用再传 token；到期前自动续期，续期后回写你的库
+// 绑定凭证，之后业务调用不用再传 token；到期前自动续期
 const asUser = qdmp.withUserCredential({
   ...credential,
-  onRefresh: token => db.updateCredential(credential.openId, token),
+  onRefresh: token => {
+    // 续期后拿到新的 token.accessToken / token.expiresAt，存回你放凭证的地方
+  },
 })
 
 const me = await asUser.user.me()
@@ -59,14 +61,15 @@ QdmpClient qdmp = new QdmpClient(
         .build());
 
 UserAccessTokenResult credential = qdmp.auth().getUserAccessToken(code);
-db.saveCredential(credential.getOpenId(), credential);
 
 QdmpUserClient asUser = qdmp.withUserCredential(
     UserCredentialOptions.builder()
         .accessToken(credential.getAccessToken())
         .refreshToken(credential.getRefreshToken())
         .expiresAt(credential.getExpiresAtEpochSeconds())
-        .onRefresh(token -> db.updateCredential(credential.getOpenId(), token))
+        .onRefresh(token -> {
+          // 续期后把新的 accessToken / expiresAt 存回你放凭证的地方
+        })
         .build());
 
 UserMe200ResponseAllOfData me = asUser.user().me();
@@ -90,14 +93,14 @@ client, err := qdmp.NewClient(qdmp.ClientOptions{
 })
 
 credential, err := client.Auth.GetUserAccessToken(ctx, code)
-db.SaveCredential(credential.OpenID, credential)
 
 asUser := client.WithUserCredential(qdmp.UserCredentialOptions{
     AccessToken:  credential.AccessToken,
     RefreshToken: credential.RefreshToken,
     ExpiresAt:    credential.ExpiresAt,
     OnRefresh: func(ctx context.Context, t qdmp.RefreshedUserToken) error {
-        return db.UpdateCredential(credential.OpenID, t)
+        // 续期后把新的 t.AccessToken / t.ExpiresAt 存回你放凭证的地方
+        return nil
     },
 })
 
@@ -113,8 +116,8 @@ appCredential, err := client.Auth.GetAppAccessToken(ctx)
 
 - **用户授权凭证**（主线）：`withUserCredential` 绑定一份凭证后，SDK 到期前 300 秒自动用 refreshToken 续期；
   业务调用撞上 HTTP 401 + `10005`/`10006`（access_token 失效/过期）时，续期一次并重试该请求一次。
-  续期成功后回调 `onRefresh`，把新 accessToken 落到你自己的库里——SDK 不替你持久化，一个进程服务海量终端用户，
-  只有你的 session/DB 知道这次调用属于哪个用户。同一份凭证上的并发调用只会触发一次续期。
+  续期成功后回调 `onRefresh` 把新的 accessToken 交给你——SDK 不替你持久化：一个进程要服务海量终端用户，
+  哪次调用属于哪个用户、凭证该存到哪，只有你自己知道。同一份凭证上的并发调用只会触发一次续期。
 - **续期不换 refreshToken**：`/auth/v1/refresh` 只返回新的 accessToken 和 expiresAt，refreshToken 保持不变。
   它本身失效时返回 HTTP 200 + `10007`/`10008`，此时凭证已无法挽救，需要重新走一次「拿授权码 → 换凭证」。
 - **应用凭证**：`getAppAccessToken()` 自动缓存 + 到期前 300 秒重新换取 + 单飞锁防并发重复换取，
