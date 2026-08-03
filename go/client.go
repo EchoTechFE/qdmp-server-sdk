@@ -56,16 +56,14 @@ type ClientOptions struct {
 }
 
 // Client is the root qdmp SDK client. It exposes Auth (app-level token
-// exchange, using appId/appSecret — no user access token needed) and
-// WithAccessToken (which derives a client bound to a specific user or
-// app-level access token for calling business endpoints).
+// exchange, using appId/appSecret — no user access token needed) plus every
+// business group (User/Island/Spu/...).
 //
-// The root Client intentionally does NOT expose business group methods
-// (User/Island/Spu/...) directly: every business operation requires an
-// access token (x-qdmp-token-required=true for all of them per
-// shared/generated/route-meta.json), and Go has no way to make a plain
-// method parameter as unskippable as a derived client — so token-required
-// business calls only exist on the object returned by WithAccessToken.
+// Business group methods take the caller's credential as an explicit
+// Context argument on every call — the SDK holds no user credential of its
+// own and never renews one. This mirrors the Node and Java SDKs, where the
+// credential is likewise passed per call (`qdmp.user.me({accessToken})` /
+// `qdmp.user().me(ctx)`), so the three ends behave identically.
 type Client struct {
 	appID       string
 	appSecret   string
@@ -77,6 +75,14 @@ type Client struct {
 	// (cached + single-flight refresh) plus the one-shot,
 	// never-cached getUserAccessToken/refreshToken exchanges.
 	Auth *AuthService
+
+	User    *UserGroup
+	Island  *IslandGroup
+	Spu     *SpuGroup
+	Tag     *TagGroup
+	Mark    *MarkGroup
+	WishSpu *WishSpuGroup
+	GenAI   *GenAIGroup
 }
 
 // NewClient constructs a qdmp SDK client from the given options.
@@ -135,6 +141,13 @@ func NewClient(opts ClientOptions) (*Client, error) {
 		httpClient:  httpClient,
 	}
 	c.Auth = &AuthService{client: c, store: store}
+	c.User = &UserGroup{client: c}
+	c.Island = &IslandGroup{client: c}
+	c.Spu = &SpuGroup{client: c}
+	c.Tag = &TagGroup{client: c}
+	c.Mark = &MarkGroup{client: c}
+	c.WishSpu = &WishSpuGroup{client: c}
+	c.GenAI = &GenAIGroup{client: c}
 	return c, nil
 }
 
@@ -185,56 +198,37 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-// UserClient is a qdmp client derived from Client via WithAccessToken,
-// carrying a single access token (user-level or, where explicitly opted
-// into, app-level) that every business group method on it uses. This is the
-// only place business group methods (User, Island, Spu, Tag, Mark, WishSpu,
-// GenAI) are reachable, by design: obtaining one requires a token, so it is
-// no longer possible to "forget" to pass one at the call site.
+// Context carries the caller's credential for one business call. It is the
+// Go counterpart of the Node SDK's `{accessToken}` context object and the
+// Java SDK's QdmpContext, and is passed explicitly to every business group
+// method:
 //
-// The token it carries is static: this SDK never renews it. When a call
-// fails because the token expired or was revoked, the *QdmpApiError is
-// returned unchanged and it is up to the caller to obtain a new token (see
-// AuthService.RefreshToken) and derive a new UserClient with it.
-type UserClient struct {
-	client      *Client
-	accessToken string
-
-	User    *UserGroup
-	Island  *IslandGroup
-	Spu     *SpuGroup
-	Tag     *TagGroup
-	Mark    *MarkGroup
-	WishSpu *WishSpuGroup
-	GenAI   *GenAIGroup
-}
-
-// WithAccessToken derives a UserClient bound to the given access token. An
-// empty token is accepted here (construction never fails) so that the
-// "missing token" failure surfaces uniformly as ErrAccessTokenRequired from
-// the business method call itself, not from this constructor.
-func (c *Client) WithAccessToken(token string) *UserClient {
-	uc := &UserClient{client: c, accessToken: token}
-	uc.User = &UserGroup{uc: uc}
-	uc.Island = &IslandGroup{uc: uc}
-	uc.Spu = &SpuGroup{uc: uc}
-	uc.Tag = &TagGroup{uc: uc}
-	uc.Mark = &MarkGroup{uc: uc}
-	uc.WishSpu = &WishSpuGroup{uc: uc}
-	uc.GenAI = &GenAIGroup{uc: uc}
-	return uc
+//	me, err := client.User.Me(ctx, qdmp.Context{AccessToken: credential.AccessToken})
+//
+// The SDK stores no user credential and never renews one. When a call fails
+// because the token expired or was revoked, the *QdmpApiError is returned
+// unchanged; obtaining a new token (see AuthService.RefreshToken) and
+// passing it on the next call is the caller's job.
+//
+// It is a plain struct with no constructor on purpose: like Node, the token
+// is validated when a call actually uses it (see requireAccessToken), not at
+// construction time, so building a Context can never fail.
+type Context struct {
+	// AccessToken is the user-level (or, where explicitly opted into,
+	// app-level) access token to authenticate this call with.
+	AccessToken string
 }
 
 // requireAccessToken is the shared fail-fast-locally check every business
 // group method performs before touching the network: shared/generated/
 // route-meta.json marks every non-auth operation x-qdmp-token-required=true,
 // so an empty token here always means "must not call this operation".
-func requireAccessToken(uc *UserClient, opName string) error {
-	if uc.accessToken == "" {
+func requireAccessToken(qdmpCtx Context, opName string) error {
+	if qdmpCtx.AccessToken == "" {
 		return fmt.Errorf("qdmp: %s requires an access token: %w", opName, ErrAccessTokenRequired)
 	}
-	for i := 0; i < len(uc.accessToken); i++ {
-		b := uc.accessToken[i]
+	for i := 0; i < len(qdmpCtx.AccessToken); i++ {
+		b := qdmpCtx.AccessToken[i]
 		if b <= 0x1F || b == 0x7F {
 			return fmt.Errorf("qdmp: %s: %w", opName, ErrInvalidAccessToken)
 		}

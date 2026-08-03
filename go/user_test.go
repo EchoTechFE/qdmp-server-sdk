@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)   // derived client, no functional options
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传，无功能选项
 //	res, err := asUser.User.Me(ctx)
 //
 // qdmp.UserMeResult{ID, Nickname, Avatar string; IdentityTags, InterestTags []map[string]any}
@@ -46,7 +46,7 @@ func TestUserMe_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken(token).User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err != nil {
 		t.Fatalf("User.Me() error = %v, want nil", err)
 	}
@@ -71,7 +71,7 @@ func TestUserMe_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken("").User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: ""})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for empty accessToken")
 	}
@@ -95,7 +95,7 @@ func TestUserMe_HTTP401_Code10005(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken("a-revoked-token").User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "a-revoked-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error for HTTP 401 / code=10005")
 	}
@@ -127,7 +127,7 @@ func TestUserMe_ErrorDoesNotLeakAccessToken(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken(token).User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("expected an error")
 	}

@@ -20,22 +20,22 @@ type UserMeResult struct {
 
 // UserGroup implements the "user" operation group.
 type UserGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Me fetches the current user identified by the derived client's access
 // token (user.me has x-qdmp-token-required=true — no query parameters, the
 // server identifies the caller purely from the access-token header).
-func (g *UserGroup) Me(ctx context.Context) (*UserMeResult, error) {
-	if err := requireAccessToken(g.uc, "user.me"); err != nil {
+func (g *UserGroup) Me(ctx context.Context, qdmpCtx Context) (*UserMeResult, error) {
+	if err := requireAccessToken(qdmpCtx, "user.me"); err != nil {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/user/v1/me",
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

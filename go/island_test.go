@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.Island.Detail(ctx, generated.IslandDetailParams{Id: "..."})
 //
 // qdmp.IslandDetailResult{Island qdmp.IslandInfo}
@@ -42,7 +42,7 @@ func TestIslandDetail_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).Island.Detail(context.Background(), generated.IslandDetailParams{Id: "island-1"})
+	res, err := client.Island.Detail(context.Background(), qdmp.Context{AccessToken: token}, generated.IslandDetailParams{Id: "island-1"})
 	if err != nil {
 		t.Fatalf("Island.Detail() error = %v, want nil", err)
 	}
@@ -66,7 +66,7 @@ func TestIslandDetail_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").Island.Detail(context.Background(), generated.IslandDetailParams{Id: "island-1"})
+	res, err := client.Island.Detail(context.Background(), qdmp.Context{AccessToken: ""}, generated.IslandDetailParams{Id: "island-1"})
 	if err == nil {
 		t.Fatalf("Island.Detail() error = nil, want a local validation error for empty accessToken")
 	}
@@ -90,7 +90,7 @@ func TestIslandDetail_GatewayEnvelopeError(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("some-token").Island.Detail(context.Background(), generated.IslandDetailParams{Id: "island-1"})
+	res, err := client.Island.Detail(context.Background(), qdmp.Context{AccessToken: "some-token"}, generated.IslandDetailParams{Id: "island-1"})
 	if err == nil {
 		t.Fatalf("Island.Detail() error = nil, want an error for the gateway-envelope failure shape")
 	}

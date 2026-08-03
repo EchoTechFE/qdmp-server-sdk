@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.Mark.Add(ctx, generated.MarkAddJSONBody{SpuId: "...", Rating: &...})
 //
 // qdmp.MarkAddResult{ID string}
@@ -54,7 +54,7 @@ func TestMarkAdd_Success(t *testing.T) {
 	client := newTestClient(t, srv.URL)
 
 	value := 5
-	res, err := client.WithAccessToken(token).Mark.Add(context.Background(), generated.MarkAddJSONBody{
+	res, err := client.Mark.Add(context.Background(), qdmp.Context{AccessToken: token}, generated.MarkAddJSONBody{
 		SpuId: "spu-99887766",
 		Rating: &struct {
 			Value *int `json:"value,omitempty"`
@@ -81,7 +81,7 @@ func TestMarkAdd_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").Mark.Add(context.Background(), generated.MarkAddJSONBody{SpuId: "spu-1"})
+	res, err := client.Mark.Add(context.Background(), qdmp.Context{AccessToken: ""}, generated.MarkAddJSONBody{SpuId: "spu-1"})
 	if err == nil {
 		t.Fatalf("Mark.Add() error = nil, want a local validation error for empty accessToken")
 	}
@@ -105,7 +105,7 @@ func TestMarkAdd_HTTP401Code10005_DoesNotLeakAccessToken(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).Mark.Add(context.Background(), generated.MarkAddJSONBody{SpuId: "spu-2"})
+	res, err := client.Mark.Add(context.Background(), qdmp.Context{AccessToken: token}, generated.MarkAddJSONBody{SpuId: "spu-2"})
 	if err == nil {
 		t.Fatalf("Mark.Add() error = nil, want an error for HTTP 401 / code=10005")
 	}

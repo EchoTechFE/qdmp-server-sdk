@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.GenAI.Generate(ctx, generated.GenaiGenerateJSONBody{Model, Contents})
 //
 // qdmp.GenAIGenerateResult{ID string}
@@ -53,7 +53,7 @@ func TestGenAIGenerate_Success_UsesGenaiHeaderPair(t *testing.T) {
 
 	role := "user"
 	text := "画一只猫"
-	res, err := client.WithAccessToken(token).GenAI.Generate(context.Background(), generated.GenaiGenerateJSONBody{
+	res, err := client.GenAI.Generate(context.Background(), qdmp.Context{AccessToken: token}, generated.GenaiGenerateJSONBody{
 		Model: "google/gemini-3.1-flash-image-preview",
 		Contents: []struct {
 			Parts *[]generated.GenaiGenerateJSONBody_Contents_Parts_Item `json:"parts,omitempty"`
@@ -87,7 +87,7 @@ func TestGenAIGenerate_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").GenAI.Generate(context.Background(), generated.GenaiGenerateJSONBody{
+	res, err := client.GenAI.Generate(context.Background(), qdmp.Context{AccessToken: ""}, generated.GenaiGenerateJSONBody{
 		Model: "google/gemini-3.1-flash-image-preview",
 	})
 	if err == nil {
@@ -112,7 +112,7 @@ func TestGenAIGenerate_HTTP401_Code10005(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("a-revoked-genai-token").GenAI.Generate(context.Background(), generated.GenaiGenerateJSONBody{
+	res, err := client.GenAI.Generate(context.Background(), qdmp.Context{AccessToken: "a-revoked-genai-token"}, generated.GenaiGenerateJSONBody{
 		Model: "google/gemini-3.1-flash-image-preview",
 	})
 	if err == nil {

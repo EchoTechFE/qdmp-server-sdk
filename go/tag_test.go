@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.Tag.Detail(ctx, generated.TagDetailParams{Id: "..."})
 //	res, err := asUser.Tag.Search(ctx, generated.TagSearchParams{Keyword: ...})
 //
@@ -48,7 +48,7 @@ func TestTagDetail_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).Tag.Detail(context.Background(), generated.TagDetailParams{Id: "tag-1"})
+	res, err := client.Tag.Detail(context.Background(), qdmp.Context{AccessToken: token}, generated.TagDetailParams{Id: "tag-1"})
 	if err != nil {
 		t.Fatalf("Tag.Detail() error = %v, want nil", err)
 	}
@@ -70,7 +70,7 @@ func TestTagDetail_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").Tag.Detail(context.Background(), generated.TagDetailParams{Id: "tag-1"})
+	res, err := client.Tag.Detail(context.Background(), qdmp.Context{AccessToken: ""}, generated.TagDetailParams{Id: "tag-1"})
 	if err == nil {
 		t.Fatalf("Tag.Detail() error = nil, want a local validation error for empty accessToken")
 	}
@@ -111,7 +111,7 @@ func TestTagSearch_Success(t *testing.T) {
 
 	keyword := "哪吒"
 	filterOptions := []string{"f1", "f2"}
-	res, err := client.WithAccessToken(token).Tag.Search(context.Background(), generated.TagSearchParams{
+	res, err := client.Tag.Search(context.Background(), qdmp.Context{AccessToken: token}, generated.TagSearchParams{
 		Keyword:       &keyword,
 		FilterOptions: &filterOptions,
 	})
@@ -135,7 +135,7 @@ func TestTagSearch_GatewayEnvelopeError(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("some-token").Tag.Search(context.Background(), generated.TagSearchParams{})
+	res, err := client.Tag.Search(context.Background(), qdmp.Context{AccessToken: "some-token"}, generated.TagSearchParams{})
 	if err == nil {
 		t.Fatalf("Tag.Search() error = nil, want an error for the gateway-envelope failure shape")
 	}

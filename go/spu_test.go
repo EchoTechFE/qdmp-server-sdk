@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.Spu.Search(ctx, generated.SpuSearchParams{Keyword: ...})
 //
 // qdmp.SpuSearchResult{Items []qdmp.SpuSearchItem, TotalCount string}
@@ -13,7 +13,7 @@ package qdmp_test
 // what oapi-codegen produced from shared/openapi.yaml (header params and
 // query params both land on the operation's Params struct). The SDK must
 // NOT trust whatever the caller happened to put in those two header fields
-// — the real access-token comes from WithAccessToken(), and the real
+// — the real access-token comes from the per-call Context, and the real
 // x-echo-qdmp-version comes from ClientOptions.QdmpVersion (default "1.0").
 // TestSpuSearch_Success deliberately fills them with decoy values to prove
 // the SDK ignores them and derives the real headers itself.
@@ -62,7 +62,7 @@ func TestSpuSearch_Success_IgnoresCallerSuppliedHeaderFields(t *testing.T) {
 	client := newTestClient(t, srv.URL)
 
 	keyword := "哪吒"
-	res, err := client.WithAccessToken(realToken).Spu.Search(context.Background(), generated.SpuSearchParams{
+	res, err := client.Spu.Search(context.Background(), qdmp.Context{AccessToken: realToken}, generated.SpuSearchParams{
 		Keyword: &keyword,
 		// Deliberately wrong: the SDK must not read these back off the
 		// params struct when building the actual HTTP request headers.
@@ -97,7 +97,7 @@ func TestSpuSearch_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").Spu.Search(context.Background(), generated.SpuSearchParams{})
+	res, err := client.Spu.Search(context.Background(), qdmp.Context{AccessToken: ""}, generated.SpuSearchParams{})
 	if err == nil {
 		t.Fatalf("Spu.Search() error = nil, want a local validation error for empty accessToken")
 	}
@@ -125,7 +125,7 @@ func TestSpuSearch_GatewayEnvelopeError(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("some-token").Spu.Search(context.Background(), generated.SpuSearchParams{})
+	res, err := client.Spu.Search(context.Background(), qdmp.Context{AccessToken: "some-token"}, generated.SpuSearchParams{})
 	if err == nil {
 		t.Fatalf("Spu.Search() error = nil, want an error for the gateway-envelope failure shape")
 	}

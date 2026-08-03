@@ -74,21 +74,21 @@ type MarkDetailResult struct {
 
 // MarkGroup implements the "marks" operation group.
 type MarkGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Add adds a mark (optionally with a rating) for a given SPU.
-func (g *MarkGroup) Add(ctx context.Context, body generated.MarkAddJSONBody) (*MarkAddResult, error) {
-	if err := requireAccessToken(g.uc, "mark.add"); err != nil {
+func (g *MarkGroup) Add(ctx context.Context, qdmpCtx Context, body generated.MarkAddJSONBody) (*MarkAddResult, error) {
+	if err := requireAccessToken(qdmpCtx, "mark.add"); err != nil {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodPost,
 		path:        "/mark/v1/add",
 		jsonBody:    body,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -102,8 +102,8 @@ func (g *MarkGroup) Add(ctx context.Context, body generated.MarkAddJSONBody) (*M
 }
 
 // List fetches the current user's marks, paginated.
-func (g *MarkGroup) List(ctx context.Context, params generated.MarkListParams) (*MarkListResult, error) {
-	if err := requireAccessToken(g.uc, "mark.list"); err != nil {
+func (g *MarkGroup) List(ctx context.Context, qdmpCtx Context, params generated.MarkListParams) (*MarkListResult, error) {
+	if err := requireAccessToken(qdmpCtx, "mark.list"); err != nil {
 		return nil, err
 	}
 
@@ -111,12 +111,12 @@ func (g *MarkGroup) List(ctx context.Context, params generated.MarkListParams) (
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/mark/v1/me/list",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -130,8 +130,8 @@ func (g *MarkGroup) List(ctx context.Context, params generated.MarkListParams) (
 }
 
 // Search searches the current user's marks by category.
-func (g *MarkGroup) Search(ctx context.Context, params generated.MarkSearchParams) (*MarkSearchResult, error) {
-	if err := requireAccessToken(g.uc, "mark.search"); err != nil {
+func (g *MarkGroup) Search(ctx context.Context, qdmpCtx Context, params generated.MarkSearchParams) (*MarkSearchResult, error) {
+	if err := requireAccessToken(qdmpCtx, "mark.search"); err != nil {
 		return nil, err
 	}
 
@@ -140,12 +140,12 @@ func (g *MarkGroup) Search(ctx context.Context, params generated.MarkSearchParam
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/mark/v1/me/search",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -159,8 +159,8 @@ func (g *MarkGroup) Search(ctx context.Context, params generated.MarkSearchParam
 }
 
 // Detail fetches a single mark's details, including its history.
-func (g *MarkGroup) Detail(ctx context.Context, params generated.MarkDetailParams) (*MarkDetailResult, error) {
-	if err := requireAccessToken(g.uc, "mark.detail"); err != nil {
+func (g *MarkGroup) Detail(ctx context.Context, qdmpCtx Context, params generated.MarkDetailParams) (*MarkDetailResult, error) {
+	if err := requireAccessToken(qdmpCtx, "mark.detail"); err != nil {
 		return nil, err
 	}
 
@@ -169,12 +169,12 @@ func (g *MarkGroup) Detail(ctx context.Context, params generated.MarkDetailParam
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/mark/v1/me/detail",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

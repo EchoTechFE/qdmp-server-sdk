@@ -37,21 +37,21 @@ type WishListResult struct {
 
 // WishSpuGroup implements the "wishspu" operation group.
 type WishSpuGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Add batch-adds "wish" entries.
-func (g *WishSpuGroup) Add(ctx context.Context, body generated.WishAddJSONBody) (*WishAddResult, error) {
-	if err := requireAccessToken(g.uc, "wishspu.add"); err != nil {
+func (g *WishSpuGroup) Add(ctx context.Context, qdmpCtx Context, body generated.WishAddJSONBody) (*WishAddResult, error) {
+	if err := requireAccessToken(qdmpCtx, "wishspu.add"); err != nil {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodPost,
 		path:        "/wishspu/v1/add",
 		jsonBody:    body,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -65,17 +65,17 @@ func (g *WishSpuGroup) Add(ctx context.Context, body generated.WishAddJSONBody) 
 }
 
 // Cancel batch-cancels "wish" entries.
-func (g *WishSpuGroup) Cancel(ctx context.Context, body generated.WishCancelJSONBody) (*WishCancelResult, error) {
-	if err := requireAccessToken(g.uc, "wishspu.cancel"); err != nil {
+func (g *WishSpuGroup) Cancel(ctx context.Context, qdmpCtx Context, body generated.WishCancelJSONBody) (*WishCancelResult, error) {
+	if err := requireAccessToken(qdmpCtx, "wishspu.cancel"); err != nil {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodPost,
 		path:        "/wishspu/v1/cancel",
 		jsonBody:    body,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -89,8 +89,8 @@ func (g *WishSpuGroup) Cancel(ctx context.Context, body generated.WishCancelJSON
 }
 
 // List fetches the current user's "wish" list, paginated.
-func (g *WishSpuGroup) List(ctx context.Context, params generated.WishListParams) (*WishListResult, error) {
-	if err := requireAccessToken(g.uc, "wishspu.list"); err != nil {
+func (g *WishSpuGroup) List(ctx context.Context, qdmpCtx Context, params generated.WishListParams) (*WishListResult, error) {
+	if err := requireAccessToken(qdmpCtx, "wishspu.list"); err != nil {
 		return nil, err
 	}
 
@@ -99,12 +99,12 @@ func (g *WishSpuGroup) List(ctx context.Context, params generated.WishListParams
 	query.Set("offset", params.Offset)
 	query.Set("limit", params.Limit)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/wishspu/v1/list",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

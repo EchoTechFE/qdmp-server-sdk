@@ -29,21 +29,21 @@ type GenAIDetailResult struct {
 // sends the latter pair (confirmed by the absence of x-echo-qdmp-version in
 // this group's codeExample, per shared/openapi.yaml).
 type GenAIGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Generate submits an async AI generation task.
-func (g *GenAIGroup) Generate(ctx context.Context, body generated.GenaiGenerateJSONBody) (*GenAIGenerateResult, error) {
-	if err := requireAccessToken(g.uc, "genai.generate"); err != nil {
+func (g *GenAIGroup) Generate(ctx context.Context, qdmpCtx Context, body generated.GenaiGenerateJSONBody) (*GenAIGenerateResult, error) {
+	if err := requireAccessToken(qdmpCtx, "genai.generate"); err != nil {
 		return nil, err
 	}
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodPost,
 		path:        "/genai/v1/generate",
 		jsonBody:    body,
 		authScheme:  authSchemeGenai,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -61,21 +61,21 @@ func (g *GenAIGroup) Generate(ctx context.Context, body generated.GenaiGenerateJ
 // generated.GenaiDetailParams also carries this scheme's own header fields
 // (XOpenapiAccessToken, XOpenapiAppId); like SpuGroup.Search, this method
 // never reads them back off params — the real values come from the derived
-// UserClient's access token and the client's own configured AppID.
-func (g *GenAIGroup) Detail(ctx context.Context, params generated.GenaiDetailParams) (*GenAIDetailResult, error) {
-	if err := requireAccessToken(g.uc, "genai.detail"); err != nil {
+// per-call Context's access token and the client's own configured AppID.
+func (g *GenAIGroup) Detail(ctx context.Context, qdmpCtx Context, params generated.GenaiDetailParams) (*GenAIDetailResult, error) {
+	if err := requireAccessToken(qdmpCtx, "genai.detail"); err != nil {
 		return nil, err
 	}
 
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/genai/v1/detail",
 		query:       query,
 		authScheme:  authSchemeGenai,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

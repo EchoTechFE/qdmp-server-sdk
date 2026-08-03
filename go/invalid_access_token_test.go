@@ -15,6 +15,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/EchoTechFE/qdmp-server-sdk/go"
 )
 
 // TestUserMe_ControlCharacterAccessToken_NoRequestSent verifies that an
@@ -28,7 +30,7 @@ func TestUserMe_ControlCharacterAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken(token).User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for a CR/LF-containing accessToken")
 	}
@@ -52,7 +54,7 @@ func TestUserMe_DELCharacterAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken(token).User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for a DEL-containing accessToken")
 	}
@@ -77,7 +79,7 @@ func TestUserMe_ControlCharacterAccessToken_ErrorDoesNotLeakToken(t *testing.T) 
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken(token).User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for a CR/LF-containing accessToken")
 	}
@@ -106,7 +108,7 @@ func TestUserMe_TabControlCharacterAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken(token).User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for a tab-containing accessToken (net/http alone will NOT reject this and would send it over the wire)")
 	}
@@ -130,7 +132,7 @@ func TestUserMe_TabControlCharacterAccessToken_ErrorDoesNotLeakToken(t *testing.
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken(token).User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a local validation error for a tab-containing accessToken")
 	}

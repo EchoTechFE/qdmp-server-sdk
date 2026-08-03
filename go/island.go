@@ -26,27 +26,27 @@ type IslandDetailResult struct {
 
 // IslandGroup implements the "island" operation group.
 type IslandGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Detail fetches an island's basic info by ID. Confirmed by real testing to
 // also work with an app-level (CLIENT_CREDENTIALS) token; the SDK still
 // requires the caller to explicitly pass some token (there is no silent
 // app-token fallback).
-func (g *IslandGroup) Detail(ctx context.Context, params generated.IslandDetailParams) (*IslandDetailResult, error) {
-	if err := requireAccessToken(g.uc, "island.detail"); err != nil {
+func (g *IslandGroup) Detail(ctx context.Context, qdmpCtx Context, params generated.IslandDetailParams) (*IslandDetailResult, error) {
+	if err := requireAccessToken(qdmpCtx, "island.detail"); err != nil {
 		return nil, err
 	}
 
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/island/v1/detail",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

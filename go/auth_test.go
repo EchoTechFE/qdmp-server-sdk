@@ -416,7 +416,7 @@ func TestNewClient_CustomQdmpVersion(t *testing.T) {
 		t.Fatalf("qdmp.NewClient() error = %v", err)
 	}
 
-	if _, err := client.WithAccessToken("some-token").Island.Detail(context.Background(), generated.IslandDetailParams{Id: "island-1"}); err != nil {
+	if _, err := client.Island.Detail(context.Background(), qdmp.Context{AccessToken: "some-token"}, generated.IslandDetailParams{Id: "island-1"}); err != nil {
 		t.Fatalf("Island.Detail() error = %v, want nil", err)
 	}
 	if counter.Count() != 1 {

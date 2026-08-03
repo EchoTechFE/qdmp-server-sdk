@@ -2,7 +2,7 @@ package qdmp_test
 
 // Contract exercised by this file:
 //
-//	asUser := client.WithAccessToken(token)
+//	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
 //	res, err := asUser.WishSpu.Add(ctx, generated.WishAddJSONBody{Ids: []string{...}, Type: ...})
 //	res, err := asUser.WishSpu.Cancel(ctx, generated.WishCancelJSONBody{Ids: []string{...}, Type: ...})
 //	res, err := asUser.WishSpu.List(ctx, generated.WishListParams{Offset: "0", Limit: "20"})
@@ -48,7 +48,7 @@ func TestWishSpuAdd_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).WishSpu.Add(context.Background(), generated.WishAddJSONBody{
+	res, err := client.WishSpu.Add(context.Background(), qdmp.Context{AccessToken: token}, generated.WishAddJSONBody{
 		Ids:  []string{"spu-1", "spu-2"},
 		Type: generated.WishAddJSONBodyTypeWISHSPUTYPESPU,
 	})
@@ -70,7 +70,7 @@ func TestWishSpuAdd_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").WishSpu.Add(context.Background(), generated.WishAddJSONBody{
+	res, err := client.WishSpu.Add(context.Background(), qdmp.Context{AccessToken: ""}, generated.WishAddJSONBody{
 		Ids:  []string{"spu-1"},
 		Type: generated.WishAddJSONBodyTypeWISHSPUTYPESPU,
 	})
@@ -101,7 +101,7 @@ func TestWishSpuCancel_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).WishSpu.Cancel(context.Background(), generated.WishCancelJSONBody{
+	res, err := client.WishSpu.Cancel(context.Background(), qdmp.Context{AccessToken: token}, generated.WishCancelJSONBody{
 		Ids:  []string{"spu-1"},
 		Type: generated.WishCancelJSONBodyTypeWISHSPUTYPESPU,
 	})
@@ -149,7 +149,7 @@ func TestWishSpuList_Success(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken(token).WishSpu.List(context.Background(), generated.WishListParams{
+	res, err := client.WishSpu.List(context.Background(), qdmp.Context{AccessToken: token}, generated.WishListParams{
 		Offset: "0",
 		Limit:  "20",
 	})
@@ -171,7 +171,7 @@ func TestWishSpuList_MissingAccessToken_NoRequestSent(t *testing.T) {
 	srv := startServer(t, counter)
 	client := newTestClient(t, srv.URL)
 
-	res, err := client.WithAccessToken("").WishSpu.List(context.Background(), generated.WishListParams{Offset: "0", Limit: "20"})
+	res, err := client.WishSpu.List(context.Background(), qdmp.Context{AccessToken: ""}, generated.WishListParams{Offset: "0", Limit: "20"})
 	if err == nil {
 		t.Fatalf("WishSpu.List() error = nil, want a local validation error for empty accessToken")
 	}
