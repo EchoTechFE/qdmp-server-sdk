@@ -12,13 +12,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@link QdmpAuth#getUserAccessToken}'s Javadoc promises "the full session: access token, refresh
- * token, expiry, and open ID", but the current implementation's malformed-body guard ({@code
- * requireNonMalformed}) only checks {@code accessToken}/{@code expiresAt} -- it never looks at
- * {@code data.refreshToken} or {@code data.openId} at all. A response missing either field is
- * currently handed back to the caller as a session object with a silently-{@code null} (or empty)
- * refresh token / open ID, contradicting the documented contract. Both fields must be validated the
- * same way {@code accessToken}/{@code expiresAt} already are: missing or empty must throw.
+ * {@link QdmpAuth#getUserAccessToken} hands back a complete user-authorization credential: access
+ * token, refresh token, expiry, and open ID. These tests lock in that {@code refreshToken} and
+ * {@code openId} are validated exactly the way {@code accessToken}/{@code expiresAt} already are --
+ * a business-success envelope missing or emptying either one must throw rather than be handed to
+ * the caller as a credential carrying a silently-{@code null} (or empty) field.
+ *
+ * <p>Note this is deliberately stricter than the app-credential path, where an empty {@code openId}
+ * is the normal, captured server behaviour and {@code refreshToken} is not required.
  */
 class QdmpAuthUserAccessTokenFieldValidationTest {
 

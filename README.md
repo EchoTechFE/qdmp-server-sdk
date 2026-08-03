@@ -40,7 +40,7 @@ const appCredential = await qdmp.auth.getAppAccessToken()
 // => { accessToken, expiresAt, refreshToken, openId }（openId 恒为空串）
 ```
 
-失败统一抛 `QdmpApiError`（业务失败）或 `QdmpValidationError`（本地参数校验失败，不发请求）。
+失败抛三类错误：`QdmpApiError`（业务失败，响应体 `code` 非 `'0'`）、`QdmpValidationError`（本地参数校验失败，不发请求）、`QdmpTransportError`（传输层问题，如收到重定向、响应体超过 10MB）。底层 `fetch` 本身的网络错误原样透出。
 
 ## Java
 
@@ -71,7 +71,7 @@ qdmp.user().me(QdmpContext.of(fresh.getAccessToken()));
 AppAccessTokenResult appCredential = qdmp.auth().getAppAccessToken();
 ```
 
-业务失败抛 `QdmpApiError`，传输层异常抛 `QdmpTransportException`，本地参数校验失败抛 `QdmpValidationError`（均在 `io.github.echotechfe.qdmp.errors` 包下）。
+业务失败抛 `QdmpApiError`，传输层异常抛 `QdmpTransportException`，`auth.*` 的参数校验失败抛 `QdmpValidationError`（均在 `io.github.echotechfe.qdmp.errors` 包下）。`QdmpContext.of()` 的 token 校验按 Java 惯例抛 `NullPointerException`（null）/ `IllegalArgumentException`（空白或含不能进 HTTP 头的字符）。
 
 ## Go
 

@@ -31,7 +31,7 @@ import (
 // but an expiresAt that isn't a number at all.
 func TestAuthGetUserAccessToken_NonNumericExpiresAtRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		businessEnvelope(w, http.StatusOK, "0", "ok", "req-badexp-c2s-1", map[string]any{
+		businessEnvelope(w, http.StatusOK, "0", "ok", "req-badexp-usertoken-1", map[string]any{
 			"accessToken":  "tok",
 			"refreshToken": "r",
 			"expiresAt":    "garbage",
@@ -54,7 +54,7 @@ func TestAuthGetUserAccessToken_NonNumericExpiresAtRejected(t *testing.T) {
 // value that must never be treated as a usable absolute Unix-seconds expiry.
 func TestAuthGetUserAccessToken_NegativeExpiresAtRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		businessEnvelope(w, http.StatusOK, "0", "ok", "req-badexp-c2s-2", map[string]any{
+		businessEnvelope(w, http.StatusOK, "0", "ok", "req-badexp-usertoken-2", map[string]any{
 			"accessToken":  "tok",
 			"refreshToken": "r",
 			"expiresAt":    "-100",

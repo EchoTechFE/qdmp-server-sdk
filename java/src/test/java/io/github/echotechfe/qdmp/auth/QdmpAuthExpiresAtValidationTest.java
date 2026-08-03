@@ -99,7 +99,7 @@ class QdmpAuthExpiresAtValidationTest {
    * Regression test (codex convergence-check finding): a non-negative but already-expired {@code
    * expiresAt} (e.g. {@code "1"}, 1970-01-01) passes {@code parseExpiresAt} (which only rejects
    * negative/non-numeric values) and must still be rejected by {@code requireNotAlreadyExpired} --
-   * otherwise a caller could persist or start relying on a session/token that is already dead on
+   * otherwise a caller could persist or start relying on a credential that is already dead on
    * arrival.
    */
   @Test
@@ -137,7 +137,7 @@ class QdmpAuthExpiresAtValidationTest {
    * as if it were valid.
    */
   @Test
-  void getAccessToken_negativeExpiresAt_throws() {
+  void getAppAccessToken_negativeExpiresAt_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
