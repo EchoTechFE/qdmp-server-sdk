@@ -31,7 +31,7 @@ public final class TagGroup {
     return transport.get(
         DETAIL_ROUTE.getPath(),
         AuthScheme.fromWireValue(DETAIL_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         Map.of("id", id),
         TagDetail200ResponseAllOfData.class);
   }
@@ -47,7 +47,7 @@ public final class TagGroup {
     return transport.get(
         SEARCH_ROUTE.getPath(),
         AuthScheme.fromWireValue(SEARCH_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         params.toQueryMap(),
         TagSearch200ResponseAllOfData.class);
   }

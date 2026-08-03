@@ -28,7 +28,7 @@ public final class UserGroup {
     return transport.get(
         ME_ROUTE.getPath(),
         AuthScheme.fromWireValue(ME_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         null,
         UserMe200ResponseAllOfData.class);
   }

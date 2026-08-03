@@ -179,6 +179,10 @@ export class HttpClient {
     this.dispatcher = config.dispatcher;
   }
 
+  /** Sends the request exactly once and returns the parsed `data` — or
+   * throws. The SDK never retries: an expired/rejected access-token surfaces
+   * as a QdmpApiError (HTTP 401 + business code 10005/10006) for the caller
+   * to handle, e.g. by calling `auth.refreshToken()` themselves. */
   async request<T>(options: HttpRequestOptions): Promise<T> {
     const url = new URL(options.path, this.baseUrl);
     appendQuery(url, options.query);

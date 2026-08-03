@@ -40,7 +40,7 @@ public final class MarkGroup {
     return transport.post(
         ADD_ROUTE.getPath(),
         AuthScheme.fromWireValue(ADD_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         request,
         MarkAdd200ResponseAllOfData.class);
   }
@@ -59,7 +59,7 @@ public final class MarkGroup {
     return transport.get(
         LIST_ROUTE.getPath(),
         AuthScheme.fromWireValue(LIST_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         Map.of("limit", limit, "offset", offset),
         MarkList200ResponseAllOfData.class);
   }
@@ -75,7 +75,7 @@ public final class MarkGroup {
     return transport.get(
         SEARCH_ROUTE.getPath(),
         AuthScheme.fromWireValue(SEARCH_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         params.toQueryMap(),
         MarkSearch200ResponseAllOfData.class);
   }
@@ -97,7 +97,7 @@ public final class MarkGroup {
     return transport.get(
         DETAIL_ROUTE.getPath(),
         AuthScheme.fromWireValue(DETAIL_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         Map.of("id", id, "limit", limit, "offset", offset),
         MarkDetail200ResponseAllOfData.class);
   }

@@ -22,7 +22,7 @@ const defaultQdmpVersion = "1.0"
 // http.Client (used whenever ClientOptions.HTTPClient is nil). Without this,
 // a hung token endpoint would block indefinitely: the default *http.Client
 // has no timeout at all, which combined with AuthService's single-flight
-// refresh means every concurrent GetAccessToken caller would pile up behind
+// refresh means every concurrent GetAppAccessToken caller would pile up behind
 // one stuck exchange with no way out other than each caller's own context
 // deadline. Callers needing a different bound can still override it via
 // ClientOptions.HTTPClient.
@@ -75,7 +75,7 @@ type Client struct {
 
 	// Auth manages the app-level (CLIENT_CREDENTIALS) token lifecycle
 	// (cached + single-flight refresh) plus the one-shot,
-	// never-cached code2Session/refreshToken exchanges.
+	// never-cached getUserAccessToken/refreshToken exchanges.
 	Auth *AuthService
 }
 
@@ -191,6 +191,11 @@ func isLoopbackHost(host string) bool {
 // only place business group methods (User, Island, Spu, Tag, Mark, WishSpu,
 // GenAI) are reachable, by design: obtaining one requires a token, so it is
 // no longer possible to "forget" to pass one at the call site.
+//
+// The token it carries is static: this SDK never renews it. When a call
+// fails because the token expired or was revoked, the *QdmpApiError is
+// returned unchanged and it is up to the caller to obtain a new token (see
+// AuthService.RefreshToken) and derive a new UserClient with it.
 type UserClient struct {
 	client      *Client
 	accessToken string

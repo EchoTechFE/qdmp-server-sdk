@@ -41,7 +41,7 @@ void test('QdmpApiError: code 字段中嵌入的 \\r\\n 不得原样出现在 er
     dispatcher: mockAgent,
   });
 
-  const err = await expectFailure(() => client.auth.getAccessToken());
+  const err = await expectFailure(() => client.auth.getAppAccessToken());
 
   assert.ok(
     err instanceof QdmpApiError,
@@ -84,7 +84,7 @@ void test('QdmpApiError: requestId 字段中嵌入的 \\r\\n 不得原样出现�
     dispatcher: mockAgent,
   });
 
-  const err = await expectFailure(() => client.auth.getAccessToken());
+  const err = await expectFailure(() => client.auth.getAppAccessToken());
 
   assert.ok(err instanceof QdmpApiError);
   const apiErr = err as QdmpApiError;
@@ -116,7 +116,7 @@ void test('HttpClient.request: 响应体的 code 字段是数组/对象（既不
     dispatcher: mockAgent,
   });
 
-  const err = await expectFailure(() => client.auth.getAccessToken());
+  const err = await expectFailure(() => client.auth.getAppAccessToken());
   assert.ok(
     err instanceof QdmpApiError,
     `应当 reject QdmpApiError，实际抛出: ${String(err)}`,

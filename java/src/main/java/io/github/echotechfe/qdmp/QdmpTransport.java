@@ -32,6 +32,10 @@ import okio.BufferedSource;
  * tolerates both real envelope shapes -- {@code {code, message, requestId, data}} and the gateway
  * {@code {code, message, details}} -- and treats {@code String(code) == "0"} as the only success
  * signal, never the HTTP status code.
+ *
+ * <p>The {@link QdmpContext}-taking overloads are a convenience for the business groups: they read
+ * the token off the context and send the request exactly once. The SDK never renews a credential on
+ * the caller's behalf, so an HTTP 401 reaches the caller untouched.
  */
 public final class QdmpTransport {
 
@@ -118,6 +122,27 @@ public final class QdmpTransport {
   }
 
   /**
+   * Issues a GET request authenticated with the token carried by a {@link QdmpContext}.
+   *
+   * @param path the operation path, e.g. {@code /user/v1/me}
+   * @param scheme which header pair to attach
+   * @param ctx the calling context, carrying the token to authenticate with
+   * @param query optional query parameters; values may be scalars or {@link List}s (repeated
+   *     params)
+   * @param dataType the response {@code data} POJO type
+   * @param <T> the response {@code data} type
+   * @return the deserialized {@code data} payload
+   */
+  public <T> T get(
+      String path,
+      AuthScheme scheme,
+      QdmpContext ctx,
+      Map<String, Object> query,
+      Class<T> dataType) {
+    return get(path, scheme, ctx.getAccessToken(), query, dataType);
+  }
+
+  /**
    * Issues a POST request with a JSON body and parses the {@code data} field of a successful
    * business envelope into {@code dataType}.
    *
@@ -131,16 +156,34 @@ public final class QdmpTransport {
    */
   public <T> T post(
       String path, AuthScheme scheme, String accessToken, Object body, Class<T> dataType) {
-    RequestBody requestBody;
+    Request.Builder requestBuilder =
+        new Request.Builder().url(pathUrlBuilder(path).build()).post(jsonBody(body));
+    applyAuthHeaders(requestBuilder, scheme, accessToken);
+    return execute(requestBuilder.build(), dataType);
+  }
+
+  /**
+   * Issues a POST request authenticated with the token carried by a {@link QdmpContext}.
+   *
+   * @param path the operation path, e.g. {@code /mark/v1/add}
+   * @param scheme which header pair to attach
+   * @param ctx the calling context, carrying the token to authenticate with
+   * @param body the request body, serialized as JSON
+   * @param dataType the response {@code data} POJO type
+   * @param <T> the response {@code data} type
+   * @return the deserialized {@code data} payload
+   */
+  public <T> T post(
+      String path, AuthScheme scheme, QdmpContext ctx, Object body, Class<T> dataType) {
+    return post(path, scheme, ctx.getAccessToken(), body, dataType);
+  }
+
+  private static RequestBody jsonBody(Object body) {
     try {
-      requestBody = RequestBody.create(JSON.writeValueAsBytes(body), JSON_MEDIA_TYPE);
+      return RequestBody.create(JSON.writeValueAsBytes(body), JSON_MEDIA_TYPE);
     } catch (IOException e) {
       throw new QdmpTransportException("failed to serialize request body", e);
     }
-    Request.Builder requestBuilder =
-        new Request.Builder().url(pathUrlBuilder(path).build()).post(requestBody);
-    applyAuthHeaders(requestBuilder, scheme, accessToken);
-    return execute(requestBuilder.build(), dataType);
   }
 
   private HttpUrl.Builder pathUrlBuilder(String path) {

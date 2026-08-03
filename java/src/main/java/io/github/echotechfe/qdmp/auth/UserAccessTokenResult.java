@@ -1,15 +1,15 @@
 package io.github.echotechfe.qdmp.auth;
 
 /**
- * The full user session returned by {@link QdmpAuth#code2Session(String)}: access token, refresh
- * token, expiry, and open ID.
+ * The full user-authorization credential returned by {@link QdmpAuth#getUserAccessToken(String)}:
+ * access token, refresh token, expiry, and open ID.
  *
  * <p>Hand-written (not generated) so that {@link #toString()} can omit the actual token values --
  * unlike the openapi-generator DTOs, whose generated {@code toString()} prints every field verbatim
  * and would otherwise write plaintext credentials into anything that logs this object (e.g. {@code
- * logger.info("session={}", session)}).
+ * logger.info("credential={}", credential)}).
  */
-public final class Code2SessionResult {
+public final class UserAccessTokenResult {
 
   private final String accessToken;
   private final String refreshToken;
@@ -17,7 +17,7 @@ public final class Code2SessionResult {
   private final String openId;
 
   /**
-   * Creates a new session result.
+   * Creates a new user-authorization credential.
    *
    * @param accessToken the user-level access token
    * @param refreshToken the refresh token, exchangeable via {@link QdmpAuth#refreshToken(String)}
@@ -25,7 +25,7 @@ public final class Code2SessionResult {
    *     milliseconds, and not a relative "seconds remaining" duration)
    * @param openId the user's open ID, unique within this app
    */
-  public Code2SessionResult(
+  public UserAccessTokenResult(
       String accessToken, String refreshToken, long expiresAtEpochSeconds, String openId) {
     this.accessToken = accessToken;
     this.refreshToken = refreshToken;
@@ -71,7 +71,7 @@ public final class Code2SessionResult {
 
   @Override
   public String toString() {
-    return "Code2SessionResult{accessToken=[REDACTED], refreshToken=[REDACTED],"
+    return "UserAccessTokenResult{accessToken=[REDACTED], refreshToken=[REDACTED],"
         + " expiresAtEpochSeconds="
         + expiresAtEpochSeconds
         + ", openId="

@@ -59,6 +59,11 @@ public final class QdmpContext {
     }
   }
 
+  /**
+   * Returns the access token this context carries.
+   *
+   * @return the access token
+   */
   public String getAccessToken() {
     return accessToken;
   }

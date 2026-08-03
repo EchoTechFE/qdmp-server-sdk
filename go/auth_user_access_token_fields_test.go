@@ -2,13 +2,13 @@ package qdmp_test
 
 // Contract exercised by this file (not yet implemented):
 //
-// Code2SessionResult (auth.go ~line 22) declares RefreshToken and OpenID
-// fields, but Code2Session (auth.go ~line 188) only ever checks
+// UserAccessTokenResult (auth.go ~line 22) declares RefreshToken and OpenID
+// fields, but GetUserAccessToken (auth.go ~line 188) only ever checks
 // result.AccessToken == "". A response reporting code=0 with a populated
 // accessToken/expiresAt but a missing or empty refreshToken/openId must
-// still surface as an error: the caller has no usable user-level session
+// still surface as an error: the caller has no usable user-level credential
 // without a refreshToken to renew it later, or an openId to know whose
-// session it is.
+// credential it is.
 
 import (
 	"context"
@@ -16,9 +16,9 @@ import (
 	"testing"
 )
 
-// TestAuthCode2Session_MissingRefreshTokenRejected drives a response that
+// TestAuthGetUserAccessToken_MissingRefreshTokenRejected drives a response that
 // omits the refreshToken field entirely (as opposed to sending it empty).
-func TestAuthCode2Session_MissingRefreshTokenRejected(t *testing.T) {
+func TestAuthGetUserAccessToken_MissingRefreshTokenRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-norefresh-1", map[string]any{
 			"accessToken": "user-level-access-token",
@@ -29,18 +29,18 @@ func TestAuthCode2Session_MissingRefreshTokenRejected(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "some-code")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "some-code")
 	if err == nil {
-		t.Fatalf("Code2Session() error = nil, want an error because refreshToken is missing from the response")
+		t.Fatalf("GetUserAccessToken() error = nil, want an error because refreshToken is missing from the response")
 	}
-	if sess != nil {
-		t.Fatalf("Code2Session() result = %+v, want nil on failure", sess)
+	if cred != nil {
+		t.Fatalf("GetUserAccessToken() result = %+v, want nil on failure", cred)
 	}
 }
 
-// TestAuthCode2Session_EmptyRefreshTokenRejected is the same failure mode
+// TestAuthGetUserAccessToken_EmptyRefreshTokenRejected is the same failure mode
 // but with an explicit empty string rather than an omitted field.
-func TestAuthCode2Session_EmptyRefreshTokenRejected(t *testing.T) {
+func TestAuthGetUserAccessToken_EmptyRefreshTokenRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-norefresh-2", map[string]any{
 			"accessToken":  "user-level-access-token",
@@ -51,18 +51,18 @@ func TestAuthCode2Session_EmptyRefreshTokenRejected(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "some-code")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "some-code")
 	if err == nil {
-		t.Fatalf("Code2Session() error = nil, want an error because refreshToken is an empty string")
+		t.Fatalf("GetUserAccessToken() error = nil, want an error because refreshToken is an empty string")
 	}
-	if sess != nil {
-		t.Fatalf("Code2Session() result = %+v, want nil on failure", sess)
+	if cred != nil {
+		t.Fatalf("GetUserAccessToken() result = %+v, want nil on failure", cred)
 	}
 }
 
-// TestAuthCode2Session_MissingOpenIDRejected drives a response that omits
+// TestAuthGetUserAccessToken_MissingOpenIDRejected drives a response that omits
 // the openId field entirely.
-func TestAuthCode2Session_MissingOpenIDRejected(t *testing.T) {
+func TestAuthGetUserAccessToken_MissingOpenIDRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-noopenid-1", map[string]any{
 			"accessToken":  "user-level-access-token",
@@ -73,18 +73,18 @@ func TestAuthCode2Session_MissingOpenIDRejected(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "some-code")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "some-code")
 	if err == nil {
-		t.Fatalf("Code2Session() error = nil, want an error because openId is missing from the response")
+		t.Fatalf("GetUserAccessToken() error = nil, want an error because openId is missing from the response")
 	}
-	if sess != nil {
-		t.Fatalf("Code2Session() result = %+v, want nil on failure", sess)
+	if cred != nil {
+		t.Fatalf("GetUserAccessToken() result = %+v, want nil on failure", cred)
 	}
 }
 
-// TestAuthCode2Session_EmptyOpenIDRejected is the same failure mode but with
+// TestAuthGetUserAccessToken_EmptyOpenIDRejected is the same failure mode but with
 // an explicit empty string rather than an omitted field.
-func TestAuthCode2Session_EmptyOpenIDRejected(t *testing.T) {
+func TestAuthGetUserAccessToken_EmptyOpenIDRejected(t *testing.T) {
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		businessEnvelope(w, http.StatusOK, "0", "ok", "req-noopenid-2", map[string]any{
 			"accessToken":  "user-level-access-token",
@@ -95,11 +95,11 @@ func TestAuthCode2Session_EmptyOpenIDRejected(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	sess, err := client.Auth.Code2Session(context.Background(), "some-code")
+	cred, err := client.Auth.GetUserAccessToken(context.Background(), "some-code")
 	if err == nil {
-		t.Fatalf("Code2Session() error = nil, want an error because openId is an empty string")
+		t.Fatalf("GetUserAccessToken() error = nil, want an error because openId is an empty string")
 	}
-	if sess != nil {
-		t.Fatalf("Code2Session() result = %+v, want nil on failure", sess)
+	if cred != nil {
+		t.Fatalf("GetUserAccessToken() result = %+v, want nil on failure", cred)
 	}
 }

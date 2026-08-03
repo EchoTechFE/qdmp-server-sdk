@@ -34,18 +34,18 @@ import (
 	"time"
 )
 
-// TestAuthGetAccessToken_StaleExpiresAtRejectedAndNotCached mirrors
-// TestAuthGetAccessToken_NegativeExpiresAtRejectedAndNotCached in
+// TestAuthGetAppAccessToken_StaleExpiresAtRejectedAndNotCached mirrors
+// TestAuthGetAppAccessToken_NegativeExpiresAtRejectedAndNotCached in
 // auth_expiresat_validation_test.go, but with a non-negative, already-
 // expired expiresAt ("1") instead of a negative one ("-100"). The mock
 // server returns the poisoned response on its first hit, then a legitimate
 // response on every hit after. If the SDK incorrectly accepted/cached the
 // poisoned exchange as "fresh" (since expiresAt="1" is not negative and
 // today's parseExpiresAt only rejects negative/non-numeric values), the
-// first GetAccessToken call would wrongly succeed with the stale token
+// first GetAppAccessToken call would wrongly succeed with the stale token
 // and/or the second call would short-circuit without ever hitting the
 // server again. Both would defeat the assertions below.
-func TestAuthGetAccessToken_StaleExpiresAtRejectedAndNotCached(t *testing.T) {
+func TestAuthGetAppAccessToken_StaleExpiresAtRejectedAndNotCached(t *testing.T) {
 	var calls int64
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		n := atomic.AddInt64(&calls, 1)
@@ -63,27 +63,27 @@ func TestAuthGetAccessToken_StaleExpiresAtRejectedAndNotCached(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err == nil {
-		t.Fatalf("first GetAccessToken() error = nil, want an error because expiresAt=\"1\" is already expired (1970-01-01), even though it is not negative")
+		t.Fatalf("first GetAppAccessToken() error = nil, want an error because expiresAt=\"1\" is already expired (1970-01-01), even though it is not negative")
 	}
-	if token != "" {
-		t.Fatalf("first GetAccessToken() = %q, want the zero value on failure", token)
+	if appToken != nil {
+		t.Fatalf("first GetAppAccessToken() = %+v, want nil on failure", appToken)
 	}
 
-	token, err = client.Auth.GetAccessToken(context.Background())
+	appToken, err = client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("second GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("second GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "token-from-good-response" {
-		t.Fatalf("second GetAccessToken() = %q, want %q", token, "token-from-good-response")
+	if appToken.AccessToken != "token-from-good-response" {
+		t.Fatalf("second GetAppAccessToken().AccessToken = %q, want %q", appToken.AccessToken, "token-from-good-response")
 	}
 	if got := atomic.LoadInt64(&calls); got != 2 {
 		t.Fatalf("server hit %d times, want exactly 2 (the first stale-expiresAt response must not have been cached as a fresh token, forcing a real second exchange)", got)
 	}
 }
 
-// TestAuthGetAccessToken_ExpiresWithinBufferRejectedAndNotCached is a
+// TestAuthGetAppAccessToken_ExpiresWithinBufferRejectedAndNotCached is a
 // regression test for a follow-up finding from codex's convergence-check
 // review: the fix above only rejected expiresAt <= now, but cachedValid's
 // own freshness predicate is stricter — it requires
@@ -94,7 +94,7 @@ func TestAuthGetAccessToken_StaleExpiresAtRejectedAndNotCached(t *testing.T) {
 // caller as "fresh" — only for cachedValid to immediately (and correctly)
 // call that same entry stale on the *next* call. The write path must use
 // the identical predicate as the read path.
-func TestAuthGetAccessToken_ExpiresWithinBufferRejectedAndNotCached(t *testing.T) {
+func TestAuthGetAppAccessToken_ExpiresWithinBufferRejectedAndNotCached(t *testing.T) {
 	var calls int64
 	soonExpiresAt := strconv.FormatInt(time.Now().Add(100*time.Second).Unix(), 10)
 	srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -113,20 +113,20 @@ func TestAuthGetAccessToken_ExpiresWithinBufferRejectedAndNotCached(t *testing.T
 	}))
 	client := newTestClient(t, srv.URL)
 
-	token, err := client.Auth.GetAccessToken(context.Background())
+	appToken, err := client.Auth.GetAppAccessToken(context.Background())
 	if err == nil {
-		t.Fatalf("first GetAccessToken() error = nil, want an error because expiresAt is only 100s away (less than the 300s refresh buffer)")
+		t.Fatalf("first GetAppAccessToken() error = nil, want an error because expiresAt is only 100s away (less than the 300s refresh buffer)")
 	}
-	if token != "" {
-		t.Fatalf("first GetAccessToken() = %q, want the zero value on failure", token)
+	if appToken != nil {
+		t.Fatalf("first GetAppAccessToken() = %+v, want nil on failure", appToken)
 	}
 
-	token, err = client.Auth.GetAccessToken(context.Background())
+	appToken, err = client.Auth.GetAppAccessToken(context.Background())
 	if err != nil {
-		t.Fatalf("second GetAccessToken() error = %v, want nil", err)
+		t.Fatalf("second GetAppAccessToken() error = %v, want nil", err)
 	}
-	if token != "token-from-good-response" {
-		t.Fatalf("second GetAccessToken() = %q, want %q", token, "token-from-good-response")
+	if appToken.AccessToken != "token-from-good-response" {
+		t.Fatalf("second GetAppAccessToken().AccessToken = %q, want %q", appToken.AccessToken, "token-from-good-response")
 	}
 	if got := atomic.LoadInt64(&calls); got != 2 {
 		t.Fatalf("server hit %d times, want exactly 2 (the first within-buffer response must not have been cached as fresh, forcing a real second exchange)", got)

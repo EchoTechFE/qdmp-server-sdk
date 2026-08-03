@@ -54,7 +54,7 @@ class RejectOnceTokenStore implements TokenStore {
   }
 }
 
-void test('auth.getAccessToken: tokenStore.set() 第一次写入失败时，该次调用必须 reject，且不得把这个未持久化的值当作本地新鲜缓存复用', async () => {
+void test('auth.getAppAccessToken: tokenStore.set() 第一次写入失败时，该次调用必须 reject，且不得把这个未持久化的值当作本地新鲜缓存复用', async () => {
   const {mockAgent, pool} = createMockAgent();
   const tokenStore = new RejectOnceTokenStore(/* rejectFirstSet= */ true);
 
@@ -73,7 +73,7 @@ void test('auth.getAccessToken: tokenStore.set() 第一次写入失败时，该�
     tokenStore,
   });
 
-  await expectFailure(() => client.auth.getAccessToken());
+  await expectFailure(() => client.auth.getAppAccessToken());
   assert.equal(
     tokenStore.setCallCount,
     1,
@@ -91,9 +91,9 @@ void test('auth.getAccessToken: tokenStore.set() 第一次写入失败时，该�
     }),
   );
 
-  const token = await client.auth.getAccessToken();
+  const token = await client.auth.getAppAccessToken();
   assert.equal(
-    token,
+    token.accessToken,
     'token-from-good-write',
     '第一次写入失败之后，下一次调用应当真实重新发起 CLIENT_CREDENTIALS 换取，而不是复用从未成功持久化的本地缓存',
   );

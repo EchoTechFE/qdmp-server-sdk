@@ -2,13 +2,23 @@ package qdmp
 
 import "sync"
 
-// TokenEntry is a cached app-level access token plus its absolute Unix-second
-// expiry timestamp. This mirrors the wire format confirmed by real traffic
-// capture: expiresAt is an absolute Unix seconds timestamp, not a relative
-// "seconds remaining" duration and not milliseconds.
+// TokenEntry is a cached app-level ("应用凭证") credential: the whole thing,
+// not just the access token. ExpiresAt mirrors the wire format confirmed by
+// real traffic capture — an absolute Unix seconds timestamp, not a relative
+// "seconds remaining" duration and not milliseconds — parsed from the
+// string the server sends.
+//
+// RefreshToken and OpenID are cached alongside so that a call served from
+// this cache returns exactly the same fields as the call that performed the
+// exchange (see AppAccessTokenResult). The CLIENT_CREDENTIALS grant really
+// does return a non-empty refreshToken and an empty openId; neither is
+// required, and neither changes how the SDK renews this credential (it
+// re-exchanges ahead of expiry, it never uses this refreshToken).
 type TokenEntry struct {
-	AccessToken string
-	ExpiresAt   int64
+	AccessToken  string
+	ExpiresAt    int64
+	RefreshToken string
+	OpenID       string
 }
 
 // TokenStore is the pluggable persistence interface for the SDK's app-level

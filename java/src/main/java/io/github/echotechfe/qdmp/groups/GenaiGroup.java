@@ -36,7 +36,7 @@ public final class GenaiGroup {
     return transport.post(
         GENERATE_ROUTE.getPath(),
         AuthScheme.fromWireValue(GENERATE_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         request,
         GenaiGenerate200ResponseAllOfData.class);
   }
@@ -52,7 +52,7 @@ public final class GenaiGroup {
     return transport.get(
         DETAIL_ROUTE.getPath(),
         AuthScheme.fromWireValue(DETAIL_ROUTE.getAuthScheme()),
-        ctx.getAccessToken(),
+        ctx,
         Map.of("id", id),
         GenaiDetail200ResponseAllOfData.class);
   }

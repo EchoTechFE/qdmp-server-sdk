@@ -11,9 +11,9 @@ import io.github.echotechfe.qdmp.groups.WishSpuGroup;
 import okhttp3.OkHttpClient;
 
 /**
- * Entry point for the qdmp Server SDK. Exposes {@link #auth()} for app-level/user-level token
- * management and one accessor per business group (e.g. {@link #mark()}), each of which routes
- * through a single shared {@link QdmpTransport} built from the given {@link QdmpClientConfig}.
+ * Entry point for the qdmp Server SDK. Exposes {@link #auth()} for app/user credential management
+ * and one accessor per business group (e.g. {@link #mark()}), each of which routes through a single
+ * shared {@link QdmpTransport} built from the given {@link QdmpClientConfig}.
  */
 public final class QdmpClient {
 

@@ -27,12 +27,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code auth.getAccessToken()} manages the app-level (CLIENT_CREDENTIALS) token: cache,
+ * {@code auth.getAppAccessToken()} manages the app credential (CLIENT_CREDENTIALS): cache,
  * single-flight refresh, pluggable {@link TokenStore}, and the two real response-envelope shapes
  * confirmed against the live API (see shared/openapi.yaml BusinessEnvelopeBase /
  * GatewayErrorEnvelope descriptions).
  */
-class QdmpAuthGetAccessTokenTest {
+class QdmpAuthGetAppAccessTokenTest {
 
   private static final ObjectMapper JSON = new ObjectMapper();
 
@@ -59,9 +59,9 @@ class QdmpAuthGetAccessTokenTest {
                     + "\"data\":{\"accessToken\":\"app-token-1\",\"expiresAt\":\"1900000000\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    String token = client.auth().getAccessToken();
+    AppAccessTokenResult credential = client.auth().getAppAccessToken();
 
-    assertThat(token).isEqualTo("app-token-1");
+    assertThat(credential.getAccessToken()).isEqualTo("app-token-1");
     RecordedRequest request = server.takeRequest();
     assertThat(request.getMethod()).isEqualTo("POST");
     assertThat(request.getPath()).isEqualTo("/auth/v1/token");
@@ -82,7 +82,7 @@ class QdmpAuthGetAccessTokenTest {
     RecordingTokenStore tokenStore = new RecordingTokenStore();
     QdmpClient client = TestClients.create(server, tokenStore);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpTransportException.class);
     assertThat(tokenStore.getSetCallCount()).isZero();
   }
@@ -98,9 +98,9 @@ class QdmpAuthGetAccessTokenTest {
                     + "\"expiresAt\":\"1900000000\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    String token = client.auth().getAccessToken();
+    AppAccessTokenResult credential = client.auth().getAppAccessToken();
 
-    assertThat(token).isEqualTo("app-token-numeric");
+    assertThat(credential.getAccessToken()).isEqualTo("app-token-numeric");
   }
 
   @Test
@@ -113,11 +113,11 @@ class QdmpAuthGetAccessTokenTest {
                     + "{\"accessToken\":\"app-token-1\",\"expiresAt\":\"9999999999\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    String first = client.auth().getAccessToken();
-    String second = client.auth().getAccessToken();
+    AppAccessTokenResult first = client.auth().getAppAccessToken();
+    AppAccessTokenResult second = client.auth().getAppAccessToken();
 
-    assertThat(first).isEqualTo("app-token-1");
-    assertThat(second).isEqualTo("app-token-1");
+    assertThat(first.getAccessToken()).isEqualTo("app-token-1");
+    assertThat(second.getAccessToken()).isEqualTo("app-token-1");
     assertThat(server.getRequestCount()).isEqualTo(1);
   }
 
@@ -136,7 +136,7 @@ class QdmpAuthGetAccessTokenTest {
                     + "\"}}"));
     QdmpClient client = TestClients.create(server, null, clock);
 
-    assertThat(client.auth().getAccessToken()).isEqualTo("token-a");
+    assertThat(client.auth().getAppAccessToken().getAccessToken()).isEqualTo("token-a");
     assertThat(server.getRequestCount()).isEqualTo(1);
 
     // Advance past (expiresAt - 300s buffer): 400s - 150s = 250s remaining < 300s buffer.
@@ -151,9 +151,9 @@ class QdmpAuthGetAccessTokenTest {
                     + secondExpiresAt
                     + "\"}}"));
 
-    String refreshed = client.auth().getAccessToken();
+    AppAccessTokenResult refreshed = client.auth().getAppAccessToken();
 
-    assertThat(refreshed).isEqualTo("token-b");
+    assertThat(refreshed.getAccessToken()).isEqualTo("token-b");
     assertThat(server.getRequestCount()).isEqualTo(2);
   }
 
@@ -182,7 +182,7 @@ class QdmpAuthGetAccessTokenTest {
               ready.countDown();
               try {
                 start.await();
-                results.add(client.auth().getAccessToken());
+                results.add(client.auth().getAppAccessToken().getAccessToken());
               } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
               } finally {
@@ -213,13 +213,69 @@ class QdmpAuthGetAccessTokenTest {
   @Test
   void prePopulatedTokenStore_isUsedWithoutAnyNetworkCall() throws Exception {
     RecordingTokenStore tokenStore = new RecordingTokenStore();
-    tokenStore.set(new CachedAppToken("seeded-token", 9_999_999_999L));
+    tokenStore.set(new CachedAppToken("seeded-token", 9_999_999_999L, "seeded-refresh-token", ""));
     QdmpClient client = TestClients.create(server, tokenStore);
 
-    String token = client.auth().getAccessToken();
+    AppAccessTokenResult credential = client.auth().getAppAccessToken();
 
-    assertThat(token).isEqualTo("seeded-token");
+    assertThat(credential.getAccessToken()).isEqualTo("seeded-token");
     assertThat(server.getRequestCount()).isEqualTo(0);
+  }
+
+  /**
+   * The cache-hit path and the freshly-exchanged path must hand back an equally complete
+   * credential: if the cached entry only carried accessToken/expiresAt, a caller served from the
+   * cache would silently lose the refreshToken/openId a caller served by a live exchange gets, and
+   * could not tell the two apart other than by the missing fields.
+   */
+  @Test
+  void cachedCredential_carriesEveryFieldTheFreshlyExchangedOneDoes() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":"
+                    + "{\"accessToken\":\"app-token-1\",\"expiresAt\":\"9999999999\","
+                    + "\"refreshToken\":\"app-refresh-token-1\",\"openId\":\"\"}}"));
+    QdmpClient client = TestClients.create(server);
+
+    AppAccessTokenResult fresh = client.auth().getAppAccessToken();
+    AppAccessTokenResult cached = client.auth().getAppAccessToken();
+
+    assertThat(server.getRequestCount())
+        .as("the second call must be served from cache")
+        .isEqualTo(1);
+    assertThat(fresh.getAccessToken()).isEqualTo("app-token-1");
+    assertThat(fresh.getExpiresAtEpochSeconds()).isEqualTo(9_999_999_999L);
+    assertThat(fresh.getRefreshToken()).isEqualTo("app-refresh-token-1");
+    assertThat(fresh.getOpenId()).isEmpty();
+    assertThat(cached.getAccessToken()).isEqualTo(fresh.getAccessToken());
+    assertThat(cached.getExpiresAtEpochSeconds()).isEqualTo(fresh.getExpiresAtEpochSeconds());
+    assertThat(cached.getRefreshToken()).isEqualTo(fresh.getRefreshToken());
+    assertThat(cached.getOpenId()).isEqualTo(fresh.getOpenId());
+  }
+
+  /**
+   * The app-credential response reports an empty {@code openId} and is not contractually required
+   * to report a {@code refreshToken} at all, so -- unlike the user-authorization path -- neither
+   * field may be validated as non-empty. A response carrying only accessToken/expiresAt must still
+   * succeed.
+   */
+  @Test
+  void missingRefreshTokenAndOpenId_areToleratedOnTheAppCredentialPath() {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":"
+                    + "{\"accessToken\":\"app-token-1\",\"expiresAt\":\"9999999999\"}}"));
+    QdmpClient client = TestClients.create(server);
+
+    AppAccessTokenResult credential = client.auth().getAppAccessToken();
+
+    assertThat(credential.getAccessToken()).isEqualTo("app-token-1");
+    assertThat(credential.getRefreshToken()).isNull();
+    assertThat(credential.getOpenId()).isNull();
   }
 
   @Test
@@ -230,7 +286,7 @@ class QdmpAuthGetAccessTokenTest {
             .setBody("{\"code\":10002,\"message\":\"密钥不匹配\",\"requestId\":\"req-err\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpApiError.class)
         .satisfies(
             e -> {
@@ -251,7 +307,7 @@ class QdmpAuthGetAccessTokenTest {
             .setBody("{\"code\":13,\"message\":\"query parse error\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpApiError.class)
         .satisfies(
             e -> {
@@ -271,7 +327,7 @@ class QdmpAuthGetAccessTokenTest {
         new MockResponse().setResponseCode(200).setBody("{\"code\":\"0\",\"message\":\"ok\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpTransportException.class)
         .isNotInstanceOf(NullPointerException.class);
   }
@@ -290,7 +346,7 @@ class QdmpAuthGetAccessTokenTest {
                     + "{\"accessToken\":\"tok\",\"expiresAt\":\"not-a-number\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpTransportException.class)
         .isNotInstanceOf(NumberFormatException.class);
   }
@@ -315,7 +371,7 @@ class QdmpAuthGetAccessTokenTest {
     RecordingTokenStore tokenStore = new RecordingTokenStore();
     QdmpClient client = TestClients.create(server, tokenStore);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken())
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
         .isInstanceOf(QdmpTransportException.class);
     assertThat(tokenStore.getSetCallCount()).isZero();
   }
@@ -335,7 +391,7 @@ class QdmpAuthGetAccessTokenTest {
 
     QdmpApiError error =
         (QdmpApiError)
-            org.assertj.core.api.Assertions.catchThrowable(() -> client.auth().getAccessToken());
+            org.assertj.core.api.Assertions.catchThrowable(() -> client.auth().getAppAccessToken());
 
     assertThat(error).isNotNull();
     assertThat(error.toString()).doesNotContain(secretAppSecret);

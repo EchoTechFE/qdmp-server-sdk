@@ -12,16 +12,16 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * {@code code2Session}/{@code refreshToken} currently validate {@code data.expiresAt} only via
- * {@code requireNonMalformed}, which checks for {@code null}/empty -- it never parses the string as
- * a number. That is inconsistent with the CLIENT_CREDENTIALS caching path ({@code
+ * {@code getUserAccessToken}/{@code refreshToken} currently validate {@code data.expiresAt} only
+ * via {@code requireNonMalformed}, which checks for {@code null}/empty -- it never parses the
+ * string as a number. That is inconsistent with the CLIENT_CREDENTIALS caching path ({@code
  * toCachedAppToken}), which does call {@code Long.parseLong(data.getExpiresAt())} and turns a
  * {@link NumberFormatException} into a typed {@link
  * io.github.echotechfe.qdmp.errors.QdmpTransportException}. A non-numeric or negative {@code
  * expiresAt} must be rejected on every one of the three auth response paths, not just
  * CLIENT_CREDENTIALS -- and {@code toCachedAppToken}'s existing {@code Long.parseLong} call must
  * also be tightened to reject negative values, which it currently accepts silently (an existing
- * bug, not just a gap in the new code2Session/refreshToken paths).
+ * bug, not just a gap in the new getUserAccessToken/refreshToken paths).
  */
 class QdmpAuthExpiresAtValidationTest {
 
@@ -39,7 +39,7 @@ class QdmpAuthExpiresAtValidationTest {
   }
 
   @Test
-  void code2Session_nonNumericExpiresAt_throws() {
+  void getUserAccessToken_nonNumericExpiresAt_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -49,12 +49,12 @@ class QdmpAuthExpiresAtValidationTest {
                     + "\"openId\":\"open-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
   @Test
-  void code2Session_negativeExpiresAt_throws() {
+  void getUserAccessToken_negativeExpiresAt_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -63,7 +63,7 @@ class QdmpAuthExpiresAtValidationTest {
                     + "\"expiresAt\":\"-100\",\"refreshToken\":\"ref\",\"openId\":\"open-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
@@ -99,11 +99,11 @@ class QdmpAuthExpiresAtValidationTest {
    * Regression test (codex convergence-check finding): a non-negative but already-expired {@code
    * expiresAt} (e.g. {@code "1"}, 1970-01-01) passes {@code parseExpiresAt} (which only rejects
    * negative/non-numeric values) and must still be rejected by {@code requireNotAlreadyExpired} --
-   * otherwise a caller could persist or start relying on a session/token that is already dead on
+   * otherwise a caller could persist or start relying on a credential that is already dead on
    * arrival.
    */
   @Test
-  void code2Session_alreadyExpiredExpiresAt_throws() {
+  void getUserAccessToken_alreadyExpiredExpiresAt_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -112,7 +112,7 @@ class QdmpAuthExpiresAtValidationTest {
                     + "\"expiresAt\":\"1\",\"refreshToken\":\"ref\",\"openId\":\"open-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().code2Session("some-code"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("some-code"))
         .isInstanceOf(RuntimeException.class);
   }
 
@@ -137,7 +137,7 @@ class QdmpAuthExpiresAtValidationTest {
    * as if it were valid.
    */
   @Test
-  void getAccessToken_negativeExpiresAt_throws() {
+  void getAppAccessToken_negativeExpiresAt_throws() {
     server.enqueue(
         new MockResponse()
             .setResponseCode(200)
@@ -146,6 +146,7 @@ class QdmpAuthExpiresAtValidationTest {
                     + "\"expiresAt\":\"-100\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getAccessToken()).isInstanceOf(RuntimeException.class);
+    assertThatThrownBy(() -> client.auth().getAppAccessToken())
+        .isInstanceOf(RuntimeException.class);
   }
 }

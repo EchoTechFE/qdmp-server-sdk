@@ -14,8 +14,8 @@
   {
     "code": 10003,
     "name": "AUTH_CODE_INVALID",
-    "message": "授权码错误",
-    "source": "文档"
+    "message": "授权码错误或超过 5 分钟",
+    "source": "文档（实测复核确认：HTTP 200 + 该 code，服务端返回的 message 是「授权码错误或超过 5 分钟」——授权码有 5 分钟有效期，源文档未写明）"
   },
   {
     "code": 10004,

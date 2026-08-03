@@ -63,6 +63,41 @@ export function gatewayFailure(
 }
 
 /**
+ * 用 `.reply()` 的回调形式来数"真的发出了几次请求"、顺便抓请求头。
+ *
+ * 不能用 `intercept({headers: h => ...})` 的匹配函数来做这件事：undici 对同一次
+ * 请求会多次调用它——挑选候选拦截器时每个未消费的候选各调一次
+ * （mock-utils.js 的 getMockDispatch()），回收已消费的拦截器时再调一次
+ * （同文件 deleteMockDispatch()）。而 `.reply(opts => ...)` 的回调在
+ * mockDispatch() 里严格每次真实 dispatch 只跑一次，是唯一可靠的请求计数点。
+ */
+export function replyWith(
+  statusCode: number,
+  data: Record<string, unknown>,
+  onRequest?: (headers: Record<string, string>) => void,
+): (opts: {headers?: Record<string, string> | Headers}) => {
+  statusCode: number;
+  data: Record<string, unknown>;
+} {
+  return opts => {
+    onRequest?.(toHeaderRecord(opts.headers));
+    return {statusCode, data};
+  };
+}
+
+function toHeaderRecord(
+  headers: Record<string, string> | Headers | undefined,
+): Record<string, string> {
+  if (!headers) {
+    return {};
+  }
+  if (headers instanceof Headers) {
+    return Object.fromEntries(headers.entries());
+  }
+  return headers;
+}
+
+/**
  * 统一捕获"函数应当失败"这件事，同时兼容同步 throw 和异步 reject 两种实现风格
  * ——`assert.rejects()` 只在传入函数返回 rejected promise 时才生效，若实现是同步
  * throw（哪怕包在 async 函数里也可能被某些写法绕过 promise 包装），

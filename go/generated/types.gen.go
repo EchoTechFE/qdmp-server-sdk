@@ -119,10 +119,10 @@ type AuthTokenJSONBody struct {
 	// AppSecret 应用密钥
 	AppSecret string `json:"appSecret"`
 
-	// Code 授权码，来自 qd.login()。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。
+	// Code 一次性授权码，小程序前端调宿主的 qd.login() 获取，需用户已在 App 内登录；其对应的原生接口是 POST https://api.qiandao.com/signin/openapi/auth/generate-code（body {appId, scene:"openapi"}，取响应的 data.code），非小程序环境可直接调用。被 Auth 服务消费后立即失效，且 5 分钟内有效（实测超时返回 code=10003「授权码错误或超过 5 分钟」）。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。
 	Code *string `json:"code,omitempty"`
 
-	// GrantType 授权类型：CLIENT_CREDENTIALS 或 AUTHORIZATION_CODE
+	// GrantType 凭证类型：CLIENT_CREDENTIALS（应用凭证）或 AUTHORIZATION_CODE（用户授权凭证）
 	GrantType AuthTokenJSONBodyGrantType `json:"grantType"`
 }
 
@@ -249,7 +249,7 @@ type IslandDetailParams struct {
 	// Id Island ID（源类型 int64，线格式为字符串）
 	Id string `form:"id" json:"id"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -292,7 +292,7 @@ type MarkAddJSONBody struct {
 
 // MarkAddParams defines parameters for MarkAdd.
 type MarkAddParams struct {
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -332,7 +332,7 @@ type MarkDetailParams struct {
 	// Offset 历史记录分页偏移量（最多 100，int64 线格式为字符串）
 	Offset string `form:"offset" json:"offset"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -369,7 +369,7 @@ type MarkListParams struct {
 	// Offset 分页偏移量（最多 100，int64 线格式为字符串）
 	Offset string `form:"offset" json:"offset"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -409,7 +409,7 @@ type MarkSearchParams struct {
 	// Offset 分页偏移量（最多 100，int64 线格式为字符串）
 	Offset string `form:"offset" json:"offset"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -443,7 +443,7 @@ type SpuDetailParams struct {
 	// Id SPU ID（源类型 uint64，线格式为字符串）
 	Id string `form:"id" json:"id"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -504,7 +504,7 @@ type SpuSearchParams struct {
 	// Limit 每页数量（offset+limit<=100，uint64 线格式为字符串）
 	Limit *string `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -563,7 +563,7 @@ type TagDetailParams struct {
 	// Id Tag ID（源类型 uint64，线格式为字符串）
 	Id string `form:"id" json:"id"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -612,7 +612,7 @@ type TagSearchParams struct {
 	// Limit 每页数量（offset+limit<=100，uint64 线格式为字符串）
 	Limit *string `form:"limit,omitempty" json:"limit,omitempty"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -643,7 +643,7 @@ type TagSearch401JSONResponseBody_Code struct {
 
 // UserMeParams defines parameters for UserMe.
 type UserMeParams struct {
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -683,7 +683,7 @@ type WishAddJSONBody struct {
 
 // WishAddParams defines parameters for WishAdd.
 type WishAddParams struct {
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -726,7 +726,7 @@ type WishCancelJSONBody struct {
 
 // WishCancelParams defines parameters for WishCancel.
 type WishCancelParams struct {
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
@@ -769,7 +769,7 @@ type WishListParams struct {
 	// Limit 每页数量（int64 线格式为字符串）
 	Limit string `form:"limit" json:"limit"`
 
-	// AccessToken 用户级或应用级访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个 token”，不区分是应用级(CLIENT_CREDENTIALS)还是用户级(AUTHORIZATION_CODE)换来的——见该 operation 上的 x-qdmp-token-required。
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
 	AccessToken AccessTokenHeader `json:"access-token"`
 
 	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
