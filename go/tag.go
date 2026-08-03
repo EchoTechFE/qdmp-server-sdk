@@ -34,24 +34,24 @@ type TagSearchResult struct {
 
 // TagGroup implements the "tag" operation group.
 type TagGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Detail fetches a single Tag's details by ID.
-func (g *TagGroup) Detail(ctx context.Context, params generated.TagDetailParams) (*TagDetailResult, error) {
-	if err := requireAccessToken(g.uc, "tag.detail"); err != nil {
+func (g *TagGroup) Detail(ctx context.Context, qdmpCtx Context, params generated.TagDetailParams) (*TagDetailResult, error) {
+	if err := requireAccessToken(qdmpCtx, "tag.detail"); err != nil {
 		return nil, err
 	}
 
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/tag/v1/detail",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -65,8 +65,8 @@ func (g *TagGroup) Detail(ctx context.Context, params generated.TagDetailParams)
 }
 
 // Search searches Tags by keyword/category filters.
-func (g *TagGroup) Search(ctx context.Context, params generated.TagSearchParams) (*TagSearchResult, error) {
-	if err := requireAccessToken(g.uc, "tag.search"); err != nil {
+func (g *TagGroup) Search(ctx context.Context, qdmpCtx Context, params generated.TagSearchParams) (*TagSearchResult, error) {
+	if err := requireAccessToken(qdmpCtx, "tag.search"); err != nil {
 		return nil, err
 	}
 
@@ -78,12 +78,12 @@ func (g *TagGroup) Search(ctx context.Context, params generated.TagSearchParams)
 	setIfNotNil(query, "offset", params.Offset)
 	setIfNotNil(query, "limit", params.Limit)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/tag/v1/search",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

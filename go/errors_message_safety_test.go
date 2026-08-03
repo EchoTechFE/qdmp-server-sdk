@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/EchoTechFE/qdmp-server-sdk/go"
 )
 
 // TestQdmpApiError_MessageCRLFNotEchoedRaw drives a business failure whose
@@ -33,7 +35,7 @@ func TestQdmpApiError_MessageCRLFNotEchoedRaw(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken("some-token").User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "some-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error because code=20000")
 	}
@@ -52,7 +54,7 @@ func TestQdmpApiError_RequestIDCRLFNotEchoedRaw(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken("some-token").User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "some-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error because code=20000")
 	}
@@ -73,7 +75,7 @@ func TestQdmpApiError_LongMessageIsBounded(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken("some-token").User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "some-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error because code=20000")
 	}

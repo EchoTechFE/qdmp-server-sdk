@@ -61,6 +61,21 @@ function extractRouteMeta(spec) {
     }
   }
 
+  // operationId 是三端查路由元数据的键，重复了就会有一条路由被另一条盖掉：
+  // 生成物看着正常，实际少了一个接口，且各端的覆盖检查也看不出来。
+  const seen = new Map()
+  for (const entry of routeMeta) {
+    if (!entry.operationId) continue
+    const prev = seen.get(entry.operationId)
+    if (prev) {
+      missingFields.push(
+        `operationId ${entry.operationId} 重复：${prev.method} ${prev.path} 与 ${entry.method} ${entry.path}`,
+      )
+    } else {
+      seen.set(entry.operationId, entry)
+    }
+  }
+
   return { routeMeta, missingFields }
 }
 

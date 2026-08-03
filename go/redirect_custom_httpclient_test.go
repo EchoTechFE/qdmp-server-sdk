@@ -51,7 +51,7 @@ func TestDoRequest_CustomHTTPClient_RedirectStillNotFollowed(t *testing.T) {
 		t.Fatalf("qdmp.NewClient() returned unexpected error: %v", err)
 	}
 
-	me, err := client.WithAccessToken("sentinel-secret-token").User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "sentinel-secret-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a non-nil error because the server responded with a 302 redirect")
 	}

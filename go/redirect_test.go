@@ -20,6 +20,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+
+	"github.com/EchoTechFE/qdmp-server-sdk/go"
 )
 
 // TestDoRequest_RedirectNotFollowed verifies that a 3xx response from the
@@ -45,7 +47,7 @@ func TestDoRequest_RedirectNotFollowed(t *testing.T) {
 
 	client := newTestClient(t, realSrv.URL)
 
-	me, err := client.WithAccessToken("sentinel-secret-token").User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "sentinel-secret-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a non-nil error because the server responded with a 302 redirect")
 	}
@@ -84,7 +86,7 @@ func TestDoRequest_RedirectErrorDoesNotLeakAccessToken(t *testing.T) {
 
 	client := newTestClient(t, realSrv.URL)
 
-	_, err := client.WithAccessToken(token).User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: token})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want a non-nil error because the server responded with a 302 redirect")
 	}

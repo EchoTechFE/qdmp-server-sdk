@@ -49,24 +49,24 @@ type SpuSearchResult struct {
 
 // SpuGroup implements the "spu" operation group.
 type SpuGroup struct {
-	uc *UserClient
+	client *Client
 }
 
 // Detail fetches a single SPU's details by ID.
-func (g *SpuGroup) Detail(ctx context.Context, params generated.SpuDetailParams) (*SpuDetailResult, error) {
-	if err := requireAccessToken(g.uc, "spu.detail"); err != nil {
+func (g *SpuGroup) Detail(ctx context.Context, qdmpCtx Context, params generated.SpuDetailParams) (*SpuDetailResult, error) {
+	if err := requireAccessToken(qdmpCtx, "spu.detail"); err != nil {
 		return nil, err
 	}
 
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/spu/v1/detail",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -88,11 +88,11 @@ func (g *SpuGroup) Detail(ctx context.Context, params generated.SpuDetailParams)
 // spec (header params and query params both land on the operation's Params
 // struct). This method deliberately never reads params.AccessToken or
 // params.XEchoQdmpVersion — the real access-token comes from the derived
-// UserClient, and the real x-echo-qdmp-version comes from the client's own
+// per-call Context, and the real x-echo-qdmp-version comes from the client's own
 // configured QdmpVersion — so a caller cannot spoof either header by
 // setting those two fields.
-func (g *SpuGroup) Search(ctx context.Context, params generated.SpuSearchParams) (*SpuSearchResult, error) {
-	if err := requireAccessToken(g.uc, "spu.search"); err != nil {
+func (g *SpuGroup) Search(ctx context.Context, qdmpCtx Context, params generated.SpuSearchParams) (*SpuSearchResult, error) {
+	if err := requireAccessToken(qdmpCtx, "spu.search"); err != nil {
 		return nil, err
 	}
 
@@ -108,12 +108,12 @@ func (g *SpuGroup) Search(ctx context.Context, params generated.SpuSearchParams)
 	setIfNotNil(query, "offset", params.Offset)
 	setIfNotNil(query, "limit", params.Limit)
 
-	data, err := g.uc.client.doRequest(ctx, requestParams{
+	data, err := g.client.doRequest(ctx, requestParams{
 		method:      http.MethodGet,
 		path:        "/spu/v1/search",
 		query:       query,
 		authScheme:  authSchemeStandard,
-		accessToken: g.uc.accessToken,
+		accessToken: qdmpCtx.AccessToken,
 	})
 	if err != nil {
 		return nil, err

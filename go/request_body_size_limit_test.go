@@ -20,6 +20,8 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/EchoTechFE/qdmp-server-sdk/go"
 )
 
 // TestDoRequest_OversizedResponseBodyRejected drives a real business call
@@ -43,7 +45,7 @@ func TestDoRequest_OversizedResponseBodyRejected(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	me, err := client.WithAccessToken("some-token").User.Me(context.Background())
+	me, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "some-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error because the response body (%d bytes) exceeds the SDK's size limit; it decoded successfully as a valid oversized envelope, proving no size cap is currently enforced", oversized)
 	}

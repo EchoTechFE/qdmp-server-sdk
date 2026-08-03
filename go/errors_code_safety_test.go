@@ -53,7 +53,7 @@ func TestQdmpApiError_CodeCRLFNotEchoedRaw(t *testing.T) {
 	}))
 	client := newTestClient(t, srv.URL)
 
-	_, err := client.WithAccessToken("some-token").User.Me(context.Background())
+	_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: "some-token"})
 	if err == nil {
 		t.Fatalf("User.Me() error = nil, want an error because code=%q is not \"0\"", injectedCode)
 	}

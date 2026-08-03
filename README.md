@@ -87,14 +87,14 @@ client, err := qdmp.NewClient(qdmp.ClientOptions{
 
 credential, err := client.Auth.GetUserAccessToken(ctx, code)
 
-// WithAccessToken 派生一个绑定了该 token 的子 client，拿不到 token 就构造不出可用的调用入口
-asUser := client.WithAccessToken(credential.AccessToken)
-me, err := asUser.User.Me(ctx)
-_, err = asUser.Mark.Add(ctx, generated.MarkAddJSONBody{SpuId: "123"})
+// 调业务接口：accessToken 每次显式传进去（ctx 仍是标准的 context.Context，管超时和取消）
+qdmpCtx := qdmp.Context{AccessToken: credential.AccessToken}
+me, err := client.User.Me(ctx, qdmpCtx)
+_, err = client.Mark.Add(ctx, qdmpCtx, generated.MarkAddJSONBody{SpuId: "123"})
 
 // 过期了自己换，SDK 不代管
 fresh, err := client.Auth.RefreshToken(ctx, credential.RefreshToken)
-me, err = client.WithAccessToken(fresh.AccessToken).User.Me(ctx)
+me, err = client.User.Me(ctx, qdmp.Context{AccessToken: fresh.AccessToken})
 
 appCredential, err := client.Auth.GetAppAccessToken(ctx)
 ```
