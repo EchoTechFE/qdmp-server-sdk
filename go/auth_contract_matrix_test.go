@@ -65,6 +65,26 @@ func loadTokenRequiredRoutes(t *testing.T) map[string]routeMetaEntry {
 	if err := json.Unmarshal(raw, &all); err != nil {
 		t.Fatalf("parse %s: %v", routeMetaPath, err)
 	}
+
+	// Index by operationId only after proving operationIds are unique. A
+	// duplicate id would otherwise be silently collapsed here: the matrix
+	// would still see 15 unique operations and compare equal, while one of
+	// the two protected routes had no public method and no auth coverage at
+	// all.
+	seen := make(map[string]bool, len(all))
+	var duplicates []string
+	for _, e := range all {
+		if seen[e.OperationID] {
+			duplicates = append(duplicates, e.OperationID)
+		}
+		seen[e.OperationID] = true
+	}
+	if len(duplicates) > 0 {
+		sort.Strings(duplicates)
+		t.Fatalf("%s declares duplicate operationIds %v; every route must have a unique id "+
+			"or this matrix silently stops covering one of them", routeMetaPath, duplicates)
+	}
+
 	out := make(map[string]routeMetaEntry)
 	for _, e := range all {
 		if e.TokenRequired {
