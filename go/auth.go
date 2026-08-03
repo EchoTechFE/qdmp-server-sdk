@@ -18,7 +18,7 @@ import (
 const tokenRefreshBufferSeconds = 300
 
 // UserAccessTokenResult is the one-shot AUTHORIZATION_CODE exchange result.
-// The SDK never caches this — the caller's own session/DB persists it,
+// The SDK never caches this — the caller's own store/DB persists it,
 // scoped to whichever end-user the code belonged to.
 type UserAccessTokenResult struct {
 	AccessToken  string `json:"accessToken"`
@@ -410,9 +410,10 @@ func (a *AuthService) GetUserAccessToken(ctx context.Context, code string) (*Use
 	}
 	// A non-negative expiresAt can still already be in the past (e.g. "1",
 	// 1970-01-01) — parseExpiresAt only rejects negative/non-numeric values.
-	// Handing back a session whose access token is already dead on arrival
-	// would let a caller persist (or start relying on) a permanently-broken
-	// session, same reasoning as the app-level cached path.
+	// Handing back a user credential whose access token is already dead on
+	// arrival would let a caller persist (or start relying on) a
+	// permanently-broken credential, same reasoning as the app-level cached
+	// path.
 	if expiresAt <= time.Now().Unix() {
 		return nil, fmt.Errorf("qdmp: auth.getUserAccessToken response has an already-expired expiresAt (%d)", expiresAt)
 	}

@@ -23,16 +23,13 @@ import java.time.Clock;
  * <p>User-authorization credentials ({@code AUTHORIZATION_CODE}, via {@link #getUserAccessToken}
  * and {@link #refreshToken}) are never cached by the SDK -- a server process serves many end users
  * at once and has no way to know, on its own, which one a given call belongs to. Callers must
- * persist these themselves, or hand them to {@link
- * io.github.echotechfe.qdmp.QdmpClient#withUserCredential} to have the SDK keep one alive for the
- * duration of a request.
+ * persist these themselves and decide when to renew one, calling {@link #refreshToken} as needed.
  */
 public final class QdmpAuth {
 
   /**
-   * Proactive renewal buffer, in seconds: a credential is renewed once fewer than this many seconds
-   * remain before its reported expiry, rather than waiting for it to actually expire. Shared with
-   * {@link UserCredentialSession}, which applies the same buffer to user-authorization credentials.
+   * Proactive renewal buffer, in seconds: the cached app credential is renewed once fewer than this
+   * many seconds remain before its reported expiry, rather than waiting for it to actually expire.
    */
   static final long REFRESH_BUFFER_SECONDS = 300;
 

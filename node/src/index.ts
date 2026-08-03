@@ -7,13 +7,6 @@ export {
   QdmpValidationError,
 } from './errors.js';
 export type {QdmpErrorCode} from './errors.js';
-export {QdmpUserClient} from './user-client.js';
-export type {ContextBound} from './user-client.js';
-export type {
-  RefreshedUserToken,
-  UserCredentialOptions,
-  UserCredentialSnapshot,
-} from './user-credential.js';
 export {InMemoryTokenStore} from './token-store.js';
 export type {StoredToken, TokenStore} from './token-store.js';
 export * from './types.js';

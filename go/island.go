@@ -41,11 +41,12 @@ func (g *IslandGroup) Detail(ctx context.Context, params generated.IslandDetailP
 	query := url.Values{}
 	query.Set("id", params.Id)
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodGet,
-		path:       "/island/v1/detail",
-		query:      query,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodGet,
+		path:        "/island/v1/detail",
+		query:       query,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err

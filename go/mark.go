@@ -83,11 +83,12 @@ func (g *MarkGroup) Add(ctx context.Context, body generated.MarkAddJSONBody) (*M
 		return nil, err
 	}
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodPost,
-		path:       "/mark/v1/add",
-		jsonBody:   body,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodPost,
+		path:        "/mark/v1/add",
+		jsonBody:    body,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -110,11 +111,12 @@ func (g *MarkGroup) List(ctx context.Context, params generated.MarkListParams) (
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodGet,
-		path:       "/mark/v1/me/list",
-		query:      query,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodGet,
+		path:        "/mark/v1/me/list",
+		query:       query,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -138,11 +140,12 @@ func (g *MarkGroup) Search(ctx context.Context, params generated.MarkSearchParam
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodGet,
-		path:       "/mark/v1/me/search",
-		query:      query,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodGet,
+		path:        "/mark/v1/me/search",
+		query:       query,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -166,11 +169,12 @@ func (g *MarkGroup) Detail(ctx context.Context, params generated.MarkDetailParam
 	query.Set("limit", params.Limit)
 	query.Set("offset", params.Offset)
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodGet,
-		path:       "/mark/v1/me/detail",
-		query:      query,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodGet,
+		path:        "/mark/v1/me/detail",
+		query:       query,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err

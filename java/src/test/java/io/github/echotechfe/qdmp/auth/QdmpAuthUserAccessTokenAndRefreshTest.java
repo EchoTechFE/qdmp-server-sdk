@@ -42,7 +42,7 @@ class QdmpAuthUserAccessTokenAndRefreshTest {
   }
 
   @Test
-  void getUserAccessToken_success_sendsAuthorizationCodeGrant_andReturnsFullSession()
+  void getUserAccessToken_success_sendsAuthorizationCodeGrant_andReturnsFullCredential()
       throws Exception {
     server.enqueue(
         new MockResponse()
@@ -53,16 +53,16 @@ class QdmpAuthUserAccessTokenAndRefreshTest {
                     + "\"refreshToken\":\"user-refresh-token\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    UserAccessTokenResult session = client.auth().getUserAccessToken("wx-login-code-abc");
+    UserAccessTokenResult userCredential = client.auth().getUserAccessToken("auth-code-abc");
 
-    assertThat(session.getAccessToken()).isEqualTo("user-access-token");
-    assertThat(session.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
-    assertThat(session.getRefreshToken()).isEqualTo("user-refresh-token");
-    assertThat(session.getOpenId()).isEqualTo("open-id-1");
+    assertThat(userCredential.getAccessToken()).isEqualTo("user-access-token");
+    assertThat(userCredential.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
+    assertThat(userCredential.getRefreshToken()).isEqualTo("user-refresh-token");
+    assertThat(userCredential.getOpenId()).isEqualTo("open-id-1");
     RecordedRequest request = server.takeRequest();
     JsonNode body = JSON.readTree(request.getBody().readUtf8());
     assertThat(body.get("grantType").asText()).isEqualTo("AUTHORIZATION_CODE");
-    assertThat(body.get("code").asText()).isEqualTo("wx-login-code-abc");
+    assertThat(body.get("code").asText()).isEqualTo("auth-code-abc");
   }
 
   @Test
@@ -211,13 +211,13 @@ class QdmpAuthUserAccessTokenAndRefreshTest {
         new MockResponse().setResponseCode(200).setBody("{\"code\":\"0\",\"message\":\"ok\"}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getUserAccessToken("wx-login-code-abc"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("auth-code-abc"))
         .isInstanceOf(QdmpTransportException.class);
   }
 
   /**
    * Same malformed-success guard as above, but for the more subtle case: {@code data} is present
-   * but its {@code accessToken} is missing. The caller must never receive a session object whose
+   * but its {@code accessToken} is missing. The caller must never receive a credential object whose
    * {@code accessToken} is silently {@code null}.
    */
   @Test
@@ -231,7 +231,7 @@ class QdmpAuthUserAccessTokenAndRefreshTest {
                     + "\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    assertThatThrownBy(() -> client.auth().getUserAccessToken("wx-login-code-abc"))
+    assertThatThrownBy(() -> client.auth().getUserAccessToken("auth-code-abc"))
         .isInstanceOf(QdmpTransportException.class);
   }
 

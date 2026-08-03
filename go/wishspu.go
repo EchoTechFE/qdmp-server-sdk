@@ -46,11 +46,12 @@ func (g *WishSpuGroup) Add(ctx context.Context, body generated.WishAddJSONBody) 
 		return nil, err
 	}
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodPost,
-		path:       "/wishspu/v1/add",
-		jsonBody:   body,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodPost,
+		path:        "/wishspu/v1/add",
+		jsonBody:    body,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -69,11 +70,12 @@ func (g *WishSpuGroup) Cancel(ctx context.Context, body generated.WishCancelJSON
 		return nil, err
 	}
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodPost,
-		path:       "/wishspu/v1/cancel",
-		jsonBody:   body,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodPost,
+		path:        "/wishspu/v1/cancel",
+		jsonBody:    body,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err
@@ -97,11 +99,12 @@ func (g *WishSpuGroup) List(ctx context.Context, params generated.WishListParams
 	query.Set("offset", params.Offset)
 	query.Set("limit", params.Limit)
 
-	data, err := g.uc.doRequest(ctx, requestParams{
-		method:     http.MethodGet,
-		path:       "/wishspu/v1/list",
-		query:      query,
-		authScheme: authSchemeStandard,
+	data, err := g.uc.client.doRequest(ctx, requestParams{
+		method:      http.MethodGet,
+		path:        "/wishspu/v1/list",
+		query:       query,
+		authScheme:  authSchemeStandard,
+		accessToken: g.uc.accessToken,
 	})
 	if err != nil {
 		return nil, err

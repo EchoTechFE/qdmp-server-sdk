@@ -5,13 +5,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.github.echotechfe.qdmp.errors.QdmpApiError;
 import io.github.echotechfe.qdmp.errors.QdmpTransportException;
-import io.github.echotechfe.qdmp.generated.KnownErrorCodes;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Supplier;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -35,10 +33,9 @@ import okio.BufferedSource;
  * {@code {code, message, details}} -- and treats {@code String(code) == "0"} as the only success
  * signal, never the HTTP status code.
  *
- * <p>The {@link QdmpContext}-taking overloads add a fourth responsibility: they let the context's
- * {@link AccessTokenSource} renew the credential before the call and once after an HTTP 401 that
- * carries {@code 10005}/{@code 10006}, retrying the request exactly once with the renewed token.
- * That policy lives here, in one place, rather than in each business group's methods.
+ * <p>The {@link QdmpContext}-taking overloads are a convenience for the business groups: they read
+ * the token off the context and send the request exactly once. The SDK never renews a credential on
+ * the caller's behalf, so an HTTP 401 reaches the caller untouched.
  */
 public final class QdmpTransport {
 
@@ -47,15 +44,6 @@ public final class QdmpTransport {
   // A malicious or malfunctioning endpoint could otherwise return an arbitrarily large response
   // body, which readBody would buffer entirely into memory before even attempting to parse it.
   private static final long MAX_RESPONSE_BODY_BYTES = 10L * 1024 * 1024;
-
-  // The only two business codes that mean "this access token is no longer usable, get a new one":
-  // 10005 (malformed/revoked) and 10006 (past its expiry). Both are reported as a real HTTP 401,
-  // and both are required -- a 401 carrying any other code, or either code at any other HTTP
-  // status, describes a different problem and must reach the caller untouched.
-  private static final String ACCESS_TOKEN_INVALID_CODE =
-      String.valueOf(KnownErrorCodes.ACCESS_TOKEN_INVALID);
-  private static final String ACCESS_TOKEN_EXPIRED_CODE =
-      String.valueOf(KnownErrorCodes.ACCESS_TOKEN_EXPIRED);
 
   // Generated response models have no @JsonIgnoreProperties and openapi.yaml itself flags several
   // `data` schemas as inferred/unverified -- the server is free to add fields we didn't predict.
@@ -134,13 +122,11 @@ public final class QdmpTransport {
   }
 
   /**
-   * Issues a GET request on behalf of a {@link QdmpContext}, letting the context's credential renew
-   * itself before the call and once after an access-token 401 (see {@link
-   * #executeWithTokenSource}).
+   * Issues a GET request authenticated with the token carried by a {@link QdmpContext}.
    *
    * @param path the operation path, e.g. {@code /user/v1/me}
    * @param scheme which header pair to attach
-   * @param ctx the calling context, carrying the credential to authenticate with
+   * @param ctx the calling context, carrying the token to authenticate with
    * @param query optional query parameters; values may be scalars or {@link List}s (repeated
    *     params)
    * @param dataType the response {@code data} POJO type
@@ -153,13 +139,7 @@ public final class QdmpTransport {
       QdmpContext ctx,
       Map<String, Object> query,
       Class<T> dataType) {
-    HttpUrl.Builder urlBuilder = pathUrlBuilder(path);
-    if (query != null) {
-      addQueryParams(urlBuilder, query);
-    }
-    HttpUrl url = urlBuilder.build();
-    return executeWithTokenSource(
-        ctx.tokenSource(), scheme, () -> new Request.Builder().url(url).get(), dataType);
+    return get(path, scheme, ctx.getAccessToken(), query, dataType);
   }
 
   /**
@@ -183,13 +163,11 @@ public final class QdmpTransport {
   }
 
   /**
-   * Issues a POST request on behalf of a {@link QdmpContext}, letting the context's credential
-   * renew itself before the call and once after an access-token 401 (see {@link
-   * #executeWithTokenSource}).
+   * Issues a POST request authenticated with the token carried by a {@link QdmpContext}.
    *
    * @param path the operation path, e.g. {@code /mark/v1/add}
    * @param scheme which header pair to attach
-   * @param ctx the calling context, carrying the credential to authenticate with
+   * @param ctx the calling context, carrying the token to authenticate with
    * @param body the request body, serialized as JSON
    * @param dataType the response {@code data} POJO type
    * @param <T> the response {@code data} type
@@ -197,52 +175,7 @@ public final class QdmpTransport {
    */
   public <T> T post(
       String path, AuthScheme scheme, QdmpContext ctx, Object body, Class<T> dataType) {
-    HttpUrl url = pathUrlBuilder(path).build();
-    RequestBody requestBody = jsonBody(body);
-    return executeWithTokenSource(
-        ctx.tokenSource(),
-        scheme,
-        () -> new Request.Builder().url(url).post(requestBody),
-        dataType);
-  }
-
-  // The single place the SDK's "renew the credential, then retry the business call exactly once"
-  // policy is implemented -- deliberately here rather than in each of the seven business groups,
-  // which would otherwise have to repeat it once per operation. The retry is attempted only for an
-  // HTTP 401 carrying 10005/10006 (see isRenewableUnauthorized) and only if the token source
-  // actually produced a different token to try; everything else -- 5xx, transport failures,
-  // business errors at HTTP 200, a 401 with an unrelated code -- propagates untouched. The retried
-  // call is executed directly, never routed back through this method, so a second failure can never
-  // trigger a second renewal.
-  private <T> T executeWithTokenSource(
-      AccessTokenSource tokenSource,
-      AuthScheme scheme,
-      Supplier<Request.Builder> requestFactory,
-      Class<T> dataType) {
-    String accessToken = tokenSource.tokenForRequest();
-    try {
-      return execute(authorize(requestFactory.get(), scheme, accessToken), dataType);
-    } catch (QdmpApiError e) {
-      if (!isRenewableUnauthorized(e)) {
-        throw e;
-      }
-      String renewedAccessToken = tokenSource.renewAfterUnauthorized(accessToken);
-      if (renewedAccessToken == null) {
-        throw e;
-      }
-      return execute(authorize(requestFactory.get(), scheme, renewedAccessToken), dataType);
-    }
-  }
-
-  private static boolean isRenewableUnauthorized(QdmpApiError error) {
-    return error.getHttpStatus() == 401
-        && (ACCESS_TOKEN_INVALID_CODE.equals(error.getCode())
-            || ACCESS_TOKEN_EXPIRED_CODE.equals(error.getCode()));
-  }
-
-  private Request authorize(Request.Builder requestBuilder, AuthScheme scheme, String accessToken) {
-    applyAuthHeaders(requestBuilder, scheme, accessToken);
-    return requestBuilder.build();
+    return post(path, scheme, ctx.getAccessToken(), body, dataType);
   }
 
   private static RequestBody jsonBody(Object body) {

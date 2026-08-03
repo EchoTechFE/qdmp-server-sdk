@@ -11,8 +11,6 @@ import {UserGroup} from './groups/user.js';
 import {WishSpuGroup} from './groups/wishspu.js';
 import {HttpClient} from './http.js';
 import {InMemoryTokenStore, type TokenStore} from './token-store.js';
-import {QdmpUserClient} from './user-client.js';
-import type {UserCredentialOptions} from './user-credential.js';
 
 /** The qdmp OpenAPI host (see shared/openapi.yaml `servers[0]`). */
 const DEFAULT_BASE_URL = 'https://openapi.qiandao.com';
@@ -99,18 +97,11 @@ export class QdmpClient {
   readonly wishspu: WishSpuGroup;
   readonly genai: GenaiGroup;
 
-  private readonly http: HttpClient;
-  private readonly appId: string;
-  private readonly qdmpVersion: string;
-
   constructor(options: QdmpClientOptions) {
     const baseUrl = options.baseUrl ?? DEFAULT_BASE_URL;
     assertSafeBaseUrl(baseUrl);
     const qdmpVersion = options.qdmpVersion ?? '1.0';
     const http = new HttpClient({baseUrl, dispatcher: options.dispatcher});
-    this.http = http;
-    this.appId = options.appId;
-    this.qdmpVersion = qdmpVersion;
 
     this.auth = new AuthModule({
       http,
@@ -127,22 +118,5 @@ export class QdmpClient {
     this.mark = new MarkGroup(deps);
     this.wishspu = new WishSpuGroup(deps);
     this.genai = new GenaiGroup(deps);
-  }
-
-  /** Binds one 用户授权凭证 to a client whose business methods take no
-   * QdmpContext and renew the credential on their own — proactively within
-   * 300 seconds of expiry, and reactively on an HTTP 401 carrying business
-   * code 10005/10006 (renewed once, request replayed once).
-   *
-   * The groups on `this` are unaffected: they keep requiring an explicit
-   * ctx and never renew anything. */
-  withUserCredential(options: UserCredentialOptions): QdmpUserClient {
-    return new QdmpUserClient({
-      http: this.http,
-      appId: this.appId,
-      qdmpVersion: this.qdmpVersion,
-      auth: this.auth,
-      options,
-    });
   }
 }

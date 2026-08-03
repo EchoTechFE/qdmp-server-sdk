@@ -12,45 +12,11 @@
 import type {Dispatcher} from 'undici';
 
 import {QdmpApiError, QdmpTransportError} from './errors.js';
-import {QDMP_ERROR_CODE} from './generated/error-codes.js';
 import type {QdmpAuthScheme, QdmpHttpMethod} from './generated/route-meta.js';
-
-/** Supplies — and, when needed, renews — the access-token a
- * credential-bound transport puts on every request it sends. Implemented by
- * the 用户授权凭证 held by a QdmpUserClient; declared here because
- * HttpClient is the single place that decides when a renewal is warranted. */
-export interface AccessTokenSource {
-  /** The access-token the next attempt should use. Implementations perform
-   * the proactive (pre-expiry) renewal here, so a request is never sent
-   * with a token that is already inside the renewal buffer. */
-  currentAccessToken(): Promise<string>;
-  /** Renews after an attempt was rejected as unauthorized, resolving with
-   * the fresh access-token. `staleAccessToken` is the token that failed, so
-   * an implementation can tell "my token is stale" apart from "someone else
-   * already renewed while my request was in flight". */
-  renewAccessToken(staleAccessToken: string): Promise<string>;
-}
 
 export interface HttpClientConfig {
   baseUrl: string;
   dispatcher?: Dispatcher;
-  accessTokenSource?: AccessTokenSource;
-}
-
-/** True only for the two business errors that mean "this access-token is no
- * longer usable": a real HTTP 401 carrying business code 10005 (malformed or
- * revoked) or 10006 (expired). Everything else — 5xx, transport/network
- * failures, any other business code, and even a 401 carrying an unrelated
- * code — must be reported to the caller untouched, without renewing. */
-function isAccessTokenRejection(error: unknown): boolean {
-  if (!(error instanceof QdmpApiError) || error.httpStatus !== 401) {
-    return false;
-  }
-  const code = String(error.code);
-  return (
-    code === String(QDMP_ERROR_CODE.ACCESS_TOKEN_INVALID) ||
-    code === String(QDMP_ERROR_CODE.ACCESS_TOKEN_EXPIRED)
-  );
 }
 
 /** Upper bound on how many response body bytes we'll read before giving up.
@@ -207,58 +173,17 @@ function parseEnvelope<T>(payload: unknown, httpStatus: number): T {
 export class HttpClient {
   private readonly baseUrl: string;
   private readonly dispatcher: Dispatcher | undefined;
-  private readonly accessTokenSource: AccessTokenSource | undefined;
 
   constructor(config: HttpClientConfig) {
     this.baseUrl = config.baseUrl;
     this.dispatcher = config.dispatcher;
-    this.accessTokenSource = config.accessTokenSource;
   }
 
-  /** Returns a sibling transport (same baseUrl/dispatcher) whose every
-   * request draws its access-token from `source` instead of from the
-   * caller-supplied `options.accessToken`, and which renews + replays once
-   * when the server rejects the token. Deliberately the ONE place that
-   * implements the renew-and-retry policy: the seventeen groups/*.ts methods
-   * stay free of retry logic, so "renew at most once, replay at most once"
-   * cannot drift between them.
-   *
-   * The transport this is called on must itself be unbound (as the root
-   * client's is), otherwise a renewal request would recurse into this same
-   * retry path. */
-  withAccessTokenSource(source: AccessTokenSource): HttpClient {
-    return new HttpClient({
-      baseUrl: this.baseUrl,
-      dispatcher: this.dispatcher,
-      accessTokenSource: source,
-    });
-  }
-
+  /** Sends the request exactly once and returns the parsed `data` — or
+   * throws. The SDK never retries: an expired/rejected access-token surfaces
+   * as a QdmpApiError (HTTP 401 + business code 10005/10006) for the caller
+   * to handle, e.g. by calling `auth.refreshToken()` themselves. */
   async request<T>(options: HttpRequestOptions): Promise<T> {
-    const source = this.accessTokenSource;
-    if (!source) {
-      return this.send<T>(options);
-    }
-    // Resolving the token BEFORE the first attempt is what implements the
-    // proactive (pre-expiry) renewal: the source renews in here, and only
-    // once it — including the caller's onRefresh hook — has settled does the
-    // business request go out.
-    const accessToken = await source.currentAccessToken();
-    try {
-      return await this.send<T>({...options, accessToken});
-    } catch (error) {
-      if (!isAccessTokenRejection(error)) {
-        throw error;
-      }
-      const renewed = await source.renewAccessToken(accessToken);
-      // Exactly one replay: whatever this attempt throws (including another
-      // 401+10005/10006) propagates untouched, so no second renewal and no
-      // second retry can ever happen for one business call.
-      return this.send<T>({...options, accessToken: renewed});
-    }
-  }
-
-  private async send<T>(options: HttpRequestOptions): Promise<T> {
     const url = new URL(options.path, this.baseUrl);
     appendQuery(url, options.query);
 

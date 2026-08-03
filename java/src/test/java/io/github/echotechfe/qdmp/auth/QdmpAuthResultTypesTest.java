@@ -16,10 +16,10 @@ import org.junit.jupiter.api.Test;
  * {@code AuthToken200ResponseAllOfData}/{@code AuthRefresh200ResponseAllOfData}. Those generated
  * classes' {@code toString()} is produced by the openapi-generator template and prints every field
  * verbatim, including {@code accessToken}/{@code refreshToken} -- so a caller doing the extremely
- * common {@code logger.info("session={}", session)} would write the plaintext token straight into
- * logs. Generated files can't be hand-edited (they get overwritten by the next {@code ./gradlew
- * codegen} run), so the fix is to introduce hand-written result types, matching the naming already
- * used by the Go SDK: {@link UserAccessTokenResult}
+ * common {@code logger.info("userCredential={}", userCredential)} would write the plaintext token
+ * straight into logs. Generated files can't be hand-edited (they get overwritten by the next {@code
+ * ./gradlew codegen} run), so the fix is to introduce hand-written result types, matching the
+ * naming already used by the Go SDK: {@link UserAccessTokenResult}
  * (accessToken/refreshToken/expiresAtEpochSeconds/openId) and {@link RefreshTokenResult}
  * (accessToken/expiresAtEpochSeconds), neither of which may print the actual token values from
  * {@code toString()}.
@@ -55,12 +55,12 @@ class QdmpAuthResultTypesTest {
                     + "\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
+    UserAccessTokenResult userCredential = client.auth().getUserAccessToken("some-code");
 
-    assertThat(session.getAccessToken()).isEqualTo(SENTINEL_ACCESS_TOKEN);
-    assertThat(session.getRefreshToken()).isEqualTo(SENTINEL_REFRESH_TOKEN);
-    assertThat(session.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
-    assertThat(session.getOpenId()).isEqualTo("open-id-1");
+    assertThat(userCredential.getAccessToken()).isEqualTo(SENTINEL_ACCESS_TOKEN);
+    assertThat(userCredential.getRefreshToken()).isEqualTo(SENTINEL_REFRESH_TOKEN);
+    assertThat(userCredential.getExpiresAtEpochSeconds()).isEqualTo(1900000000L);
+    assertThat(userCredential.getOpenId()).isEqualTo("open-id-1");
   }
 
   @Test
@@ -76,19 +76,19 @@ class QdmpAuthResultTypesTest {
                     + "\",\"openId\":\"open-id-1\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
+    UserAccessTokenResult userCredential = client.auth().getUserAccessToken("some-code");
 
-    assertThat(session.toString()).doesNotContain(SENTINEL_ACCESS_TOKEN);
-    assertThat(session.toString()).doesNotContain(SENTINEL_REFRESH_TOKEN);
+    assertThat(userCredential.toString()).doesNotContain(SENTINEL_ACCESS_TOKEN);
+    assertThat(userCredential.toString()).doesNotContain(SENTINEL_REFRESH_TOKEN);
   }
 
   /**
    * Regression test (codex convergence-check finding): {@code openId} is only validated as
    * non-empty (see {@code QdmpAuth.requireNonEmptyField}), so a server-controlled value containing
    * embedded CR/LF would, without this fix, survive verbatim into {@code toString()} and forge
-   * extra log lines via {@code logger.info("session={}", session)} -- the exact log-injection class
-   * of bug already fixed for message/code/requestId elsewhere. {@code getOpenId()} must still
-   * return the raw value unchanged; only the debug rendering is sanitized.
+   * extra log lines via {@code logger.info("userCredential={}", userCredential)} -- the exact
+   * log-injection class of bug already fixed for message/code/requestId elsewhere. {@code
+   * getOpenId()} must still return the raw value unchanged; only the debug rendering is sanitized.
    */
   @Test
   void getUserAccessToken_toString_doesNotLeakRawCrLfInOpenId() {
@@ -106,11 +106,11 @@ class QdmpAuthResultTypesTest {
                     + "\"}}"));
     QdmpClient client = TestClients.create(server);
 
-    UserAccessTokenResult session = client.auth().getUserAccessToken("some-code");
+    UserAccessTokenResult userCredential = client.auth().getUserAccessToken("some-code");
 
-    assertThat(session.toString()).doesNotContain("\r").doesNotContain("\n");
+    assertThat(userCredential.toString()).doesNotContain("\r").doesNotContain("\n");
     // Reverse-direction guard: getOpenId() must still return the raw value untouched.
-    assertThat(session.getOpenId()).isEqualTo("open-id-1\r\nFAKE injected log line");
+    assertThat(userCredential.getOpenId()).isEqualTo("open-id-1\r\nFAKE injected log line");
   }
 
   @Test

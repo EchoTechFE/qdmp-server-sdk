@@ -20,14 +20,6 @@ var ErrAccessTokenRequired = errors.New("qdmp: access token is required")
 // returned.
 var ErrInvalidAccessToken = errors.New("qdmp: access token contains a character that cannot be safely sent as an HTTP header value")
 
-// ErrRefreshTokenRequired is a sentinel error returned when a client derived
-// from WithUserCredential was given an empty RefreshToken. Renewal is the
-// whole point of that constructor and is impossible without one, so this
-// fails locally on the first business call, before any HTTP request — a
-// caller that genuinely has only an access token wants WithAccessToken
-// instead.
-var ErrRefreshTokenRequired = errors.New("qdmp: refresh token is required")
-
 // QdmpApiError represents a business-level failure reported by the qdmp
 // OpenAPI, as opposed to a transport-level failure (network error, etc).
 //
