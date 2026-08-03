@@ -2,30 +2,6 @@
 
 [千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，统一凭证生命周期管理 + 类型安全的业务接口封装。
 
-## 两种凭证
-
-OpenAPI 的 token 都由 Auth 服务的 `POST /auth/v1/token` 签发，按使用场景分两种：
-
-| | 应用凭证 | 用户授权凭证 |
-|---|---|---|
-| `grantType` | `CLIENT_CREDENTIALS` | `AUTHORIZATION_CODE` |
-| 代表谁 | 这个开放平台应用，不代表任何用户 | 某个真实登录用户，绑定 `openId` |
-| 用在哪 | 开发者内部调试、服务端联调、不需要用户身份的后台任务 | 应用上线后代表用户调业务接口——**日常调用全程用它** |
-| 怎么拿 | `appId` + `appSecret` 直接换 | 先拿一次性授权码，再用 `appId` + `appSecret` + `code` 换 |
-| 有效期 | accessToken 7200 秒 | accessToken 7200 秒，refreshToken 2592000 秒（30 天） |
-
-应用凭证换不到用户身份，也调不了需要校验用户授权的接口，别拿它顶替用户授权凭证。
-
-## 完整流程
-
-用户授权凭证要两步换，第一步在前端、第二步在你的服务端：
-
-1. **前端/App 拿一次性授权码**：持用户登录态请求 `POST https://api.qiandao.com/signin/openapi/auth/generate-code`，
-   Header 带 `Authorization: Bearer <用户登录态 token>`，Body 传 `{"appId": "app_xxx", "scene": "openapi"}`，
-   拿到 `data.code`。这一步需要用户登录态，本 SDK 不封装。
-2. **服务端换用户授权凭证**：把 `code` 传给下面的 `getUserAccessToken`。授权码是一次性的，**5 分钟内有效**，被 Auth 消费后立即失效。
-3. **调业务接口**：用换到的 accessToken，过期前 SDK 自动拿 refreshToken 续期。
-
 ## Node.js
 
 ```bash
@@ -40,7 +16,7 @@ const qdmp = new QdmpClient({
   appSecret: process.env.QDMP_APP_SECRET!,
 })
 
-// 前端传来一次性授权码，服务端换用户授权凭证并落库
+// 前端 qd.login() 拿到的一次性授权码传到服务端，换用户授权凭证并落库
 const credential = await qdmp.auth.getUserAccessToken(code)
 await db.saveCredential(credential.openId, credential)
 

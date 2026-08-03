@@ -589,7 +589,7 @@ export interface operations {
                     appId: string;
                     /** @description 应用密钥 */
                     appSecret: string;
-                    /** @description 一次性授权码，由前端/App 持用户登录态调 POST https://api.qiandao.com/signin/openapi/auth/generate-code（body {appId, scene:"openapi"}）换取，取响应的 data.code。被 Auth 服务消费后立即失效，且 5 分钟内有效（实测超时返回 code=10003「授权码错误或超过 5 分钟」）。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。 */
+                    /** @description 一次性授权码，小程序前端调宿主的 qd.login() 获取，需用户已在 App 内登录；其对应的原生接口是 POST https://api.qiandao.com/signin/openapi/auth/generate-code（body {appId, scene:"openapi"}，取响应的 data.code），非小程序环境可直接调用。被 Auth 服务消费后立即失效，且 5 分钟内有效（实测超时返回 code=10003「授权码错误或超过 5 分钟」）。仅 grantType=AUTHORIZATION_CODE 时必填；该约束在运行时校验，不在 schema 层强制声明为 required（源文档标注 required 但描述又说明“仅授权码模式必填”，语义矛盾，此处以放宽为可选处理）。 */
                     code?: string;
                 };
             };
