@@ -3,7 +3,7 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.Spu.Search(ctx, generated.SpuSearchParams{Keyword: ...})
+//	res, err := client.Spu.Search(ctx, qdmpCtx, generated.SpuSearchParams{Keyword: ...})
 //
 // qdmp.SpuSearchResult{Items []qdmp.SpuSearchItem, TotalCount string}
 // qdmp.SpuSearchItem{ID, Name, Image, TypeID, TypeName, WishCount, MarkCount string}

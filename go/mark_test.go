@@ -3,7 +3,7 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.Mark.Add(ctx, generated.MarkAddJSONBody{SpuId: "...", Rating: &...})
+//	res, err := client.Mark.Add(ctx, qdmpCtx, generated.MarkAddJSONBody{SpuId: "...", Rating: &...})
 //
 // qdmp.MarkAddResult{ID string}
 // mark.add has x-qdmp-token-required=true (shared/generated/route-meta.json).

@@ -1,17 +1,16 @@
 package qdmp_test
 
-// Contract exercised by this file (not yet implemented — see the codex
-// review round1 fix task): requireAccessToken (go/client.go) currently only
-// rejects an empty access token. The fix task adds rejection of any access
-// token containing a control character (byte <= 0x1F, or == 0x7F) — most
-// importantly CR/LF, which (if ever allowed through) would enable HTTP
-// header/request-splitting via the "access-token" header value. This must
-// be caught locally, before any HTTP request is sent, exactly like the
-// existing empty-token check (see TestUserMe_MissingAccessToken_NoRequestSent
-// in user_test.go).
+// Contract exercised by this file: requireAccessToken (go/client.go) rejects
+// not only an empty access token but any token containing a control
+// character (byte <= 0x1F, or == 0x7F) — most importantly CR/LF, which (if
+// ever allowed through) would enable HTTP header/request-splitting via the
+// "access-token" header value. This must be caught locally, before any HTTP
+// request is sent, exactly like the empty-token check (see
+// TestUserMe_MissingAccessToken_NoRequestSent in user_test.go).
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"testing"
@@ -138,5 +137,47 @@ func TestUserMe_TabControlCharacterAccessToken_ErrorDoesNotLeakToken(t *testing.
 	}
 	if got := err.Error(); strings.Contains(got, token) {
 		t.Fatalf("err.Error() leaks the raw invalid accessToken content: %q", got)
+	}
+}
+
+// TestInvalidAccessToken_SentinelIsErrInvalidAccessToken pins the *public*
+// error contract the tests above leave open: they only assert "some error,
+// no request sent", so an implementation that lumped malformed tokens in
+// with ErrAccessTokenRequired — or returned a bare fmt.Errorf — would still
+// pass them, silently breaking every caller that branches on the sentinel.
+//
+// A malformed token and a missing one are different caller-facing
+// situations ("you sent garbage" vs "you sent nothing"), so this asserts
+// both directions: ErrInvalidAccessToken must match, ErrAccessTokenRequired
+// must not.
+func TestInvalidAccessToken_SentinelIsErrInvalidAccessToken(t *testing.T) {
+	cases := []struct {
+		name  string
+		token string
+	}{
+		{"CRLF", "abc\r\ndef"},
+		{"DEL", "abc" + string(rune(0x7F)) + "def"},
+		{"tab", "abc\tdef"},
+		{"NUL", "abc" + string(rune(0x00)) + "def"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := startServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				t.Errorf("server was called for a malformed access token (%s)", tc.name)
+			}))
+			client := newTestClient(t, srv.URL)
+
+			_, err := client.User.Me(context.Background(), qdmp.Context{AccessToken: tc.token})
+			if err == nil {
+				t.Fatalf("User.Me() error = nil, want ErrInvalidAccessToken for a %s-containing token", tc.name)
+			}
+			if !errors.Is(err, qdmp.ErrInvalidAccessToken) {
+				t.Fatalf("User.Me() error = %v, want errors.Is(..., ErrInvalidAccessToken)", err)
+			}
+			if errors.Is(err, qdmp.ErrAccessTokenRequired) {
+				t.Fatalf("User.Me() error = %v: a malformed token must not be reported as "+
+					"ErrAccessTokenRequired, which means \"no token supplied\"", err)
+			}
+		})
 	}
 }

@@ -3,7 +3,7 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传，无功能选项
-//	res, err := asUser.User.Me(ctx)
+//	res, err := client.User.Me(ctx, qdmpCtx)
 //
 // qdmp.UserMeResult{ID, Nickname, Avatar string; IdentityTags, InterestTags []map[string]any}
 // user.me has x-qdmp-token-required=true (shared/generated/route-meta.json) — an

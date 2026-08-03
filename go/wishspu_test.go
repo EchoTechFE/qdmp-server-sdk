@@ -3,9 +3,9 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.WishSpu.Add(ctx, generated.WishAddJSONBody{Ids: []string{...}, Type: ...})
-//	res, err := asUser.WishSpu.Cancel(ctx, generated.WishCancelJSONBody{Ids: []string{...}, Type: ...})
-//	res, err := asUser.WishSpu.List(ctx, generated.WishListParams{Offset: "0", Limit: "20"})
+//	res, err := client.WishSpu.Add(ctx, qdmpCtx, generated.WishAddJSONBody{Ids: []string{...}, Type: ...})
+//	res, err := client.WishSpu.Cancel(ctx, qdmpCtx, generated.WishCancelJSONBody{Ids: []string{...}, Type: ...})
+//	res, err := client.WishSpu.List(ctx, qdmpCtx, generated.WishListParams{Offset: "0", Limit: "20"})
 //
 // qdmp.WishAddResult{SuccessCount string}
 // qdmp.WishCancelResult{SuccessCount string}

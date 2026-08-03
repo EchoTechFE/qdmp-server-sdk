@@ -3,7 +3,7 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.GenAI.Generate(ctx, generated.GenaiGenerateJSONBody{Model, Contents})
+//	res, err := client.GenAI.Generate(ctx, qdmpCtx, generated.GenaiGenerateJSONBody{Model, Contents})
 //
 // qdmp.GenAIGenerateResult{ID string}
 //

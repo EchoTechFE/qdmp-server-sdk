@@ -23,7 +23,7 @@ type UserGroup struct {
 	client *Client
 }
 
-// Me fetches the current user identified by the derived client's access
+// Me fetches the current user identified by the per-call Context's access
 // token (user.me has x-qdmp-token-required=true — no query parameters, the
 // server identifies the caller purely from the access-token header).
 func (g *UserGroup) Me(ctx context.Context, qdmpCtx Context) (*UserMeResult, error) {

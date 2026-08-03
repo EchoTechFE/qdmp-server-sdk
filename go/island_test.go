@@ -3,7 +3,7 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.Island.Detail(ctx, generated.IslandDetailParams{Id: "..."})
+//	res, err := client.Island.Detail(ctx, qdmpCtx, generated.IslandDetailParams{Id: "..."})
 //
 // qdmp.IslandDetailResult{Island qdmp.IslandInfo}
 // island.detail has x-qdmp-token-required=true (shared/generated/route-meta.json).

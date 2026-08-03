@@ -3,8 +3,8 @@ package qdmp_test
 // Contract exercised by this file:
 //
 //	qdmpCtx := qdmp.Context{AccessToken: token}   // 凭证每次调用显式传
-//	res, err := asUser.Tag.Detail(ctx, generated.TagDetailParams{Id: "..."})
-//	res, err := asUser.Tag.Search(ctx, generated.TagSearchParams{Keyword: ...})
+//	res, err := client.Tag.Detail(ctx, qdmpCtx, generated.TagDetailParams{Id: "..."})
+//	res, err := client.Tag.Search(ctx, qdmpCtx, generated.TagSearchParams{Keyword: ...})
 //
 // qdmp.TagDetailResult{Tag qdmp.TagInfo}
 // qdmp.TagSearchResult{Items []qdmp.TagInfo, TotalCount string}
