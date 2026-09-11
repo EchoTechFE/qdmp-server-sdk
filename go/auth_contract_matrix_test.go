@@ -26,6 +26,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -158,6 +159,41 @@ func allBusinessOps() []businessOp {
 			_, err := c.Mark.Add(ctx, q, generated.MarkAddJSONBody{SpuId: "123"})
 			return err
 		}},
+		{"markBatchAdd", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Mark.BatchAdd(ctx, q, generated.MarkBatchAddJSONRequestBody{SpuIds: []string{"1"}})
+			return err
+		}},
+		{"postDetail", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Post.Detail(ctx, q, "1")
+			return err
+		}},
+		{"postList", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Post.List(ctx, q, generated.PostListParams{})
+			return err
+		}},
+		{"postMyList", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Post.MyList(ctx, q, generated.PostMyListParams{})
+			return err
+		}},
+		{"commentCreate", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Comment.Create(ctx, q, generated.CommentCreateJSONRequestBody{PostId: "1", Content: "ok"})
+			return err
+		}},
+		{"commentReply", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Comment.Reply(ctx, q, "1", generated.CommentReplyJSONRequestBody{Content: "ok"})
+			return err
+		}},
+		{"commentLike", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			return c.Comment.Like(ctx, q, "1", generated.CommentLikeJSONRequestBody{Liked: true})
+		}},
+		{"postComments", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Comment.PostComments(ctx, q, "1", generated.PostCommentsParams{})
+			return err
+		}},
+		{"commentReplies", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
+			_, err := c.Comment.Replies(ctx, q, "1", generated.CommentRepliesParams{})
+			return err
+		}},
 		{"markList", func(c *qdmp.Client, ctx context.Context, q qdmp.Context) error {
 			_, err := c.Mark.List(ctx, q, generated.MarkListParams{Limit: "20", Offset: "0"})
 			return err
@@ -283,7 +319,12 @@ func TestBusinessOps_TokenComesFromPerCallContext(t *testing.T) {
 			// The table row must actually call the endpoint route-meta says it
 			// does, otherwise a mis-wired row could satisfy the header check
 			// while exercising a different operation entirely.
-			if method != route.Method || path != route.Path {
+			pathMatches := path == route.Path
+			if open := strings.Index(route.Path, "{"); open >= 0 {
+				close := strings.Index(route.Path[open:], "}")
+				pathMatches = close > 0 && strings.HasPrefix(path, route.Path[:open]) && strings.HasSuffix(path, route.Path[open+close+1:])
+			}
+			if method != route.Method || !pathMatches {
 				t.Fatalf("%s called %s %s, want %s %s per %s",
 					op.operationID, method, path, route.Method, route.Path, routeMetaPath)
 			}
@@ -327,6 +368,14 @@ func TestBusinessOps_EmptyContextFailsLocally(t *testing.T) {
 			}
 			if !errors.Is(err, qdmp.ErrAccessTokenRequired) {
 				t.Fatalf("%s error = %v, want errors.Is(..., ErrAccessTokenRequired)", op.operationID, err)
+			}
+			requireSpecificOperationName := map[string]bool{
+				"postDetail": true, "postList": true, "postMyList": true,
+				"commentCreate": true, "commentReply": true, "commentLike": true,
+				"postComments": true, "commentReplies": true,
+			}
+			if requireSpecificOperationName[op.operationID] && !strings.Contains(err.Error(), op.operationID) {
+				t.Fatalf("%s error = %q, want operationId in missing-token message", op.operationID, err)
 			}
 			if errors.Is(err, qdmp.ErrInvalidAccessToken) {
 				t.Fatalf("%s: a missing token must not be reported as ErrInvalidAccessToken (err = %v)",

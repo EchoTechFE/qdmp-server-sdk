@@ -1,9 +1,11 @@
 package io.github.echotechfe.qdmp;
 
 import io.github.echotechfe.qdmp.auth.QdmpAuth;
+import io.github.echotechfe.qdmp.groups.CommentGroup;
 import io.github.echotechfe.qdmp.groups.GenaiGroup;
 import io.github.echotechfe.qdmp.groups.IslandGroup;
 import io.github.echotechfe.qdmp.groups.MarkGroup;
+import io.github.echotechfe.qdmp.groups.PostGroup;
 import io.github.echotechfe.qdmp.groups.SpuGroup;
 import io.github.echotechfe.qdmp.groups.TagGroup;
 import io.github.echotechfe.qdmp.groups.UserGroup;
@@ -23,6 +25,8 @@ public final class QdmpClient {
   private final SpuGroup spu;
   private final TagGroup tag;
   private final MarkGroup mark;
+  private final PostGroup post;
+  private final CommentGroup comment;
   private final WishSpuGroup wishspu;
   private final GenaiGroup genai;
 
@@ -50,6 +54,8 @@ public final class QdmpClient {
     this.spu = new SpuGroup(transport);
     this.tag = new TagGroup(transport);
     this.mark = new MarkGroup(transport);
+    this.post = new PostGroup(transport);
+    this.comment = new CommentGroup(transport);
     this.wishspu = new WishSpuGroup(transport);
     this.genai = new GenaiGroup(transport);
   }
@@ -76,6 +82,14 @@ public final class QdmpClient {
 
   public MarkGroup mark() {
     return mark;
+  }
+
+  public PostGroup post() {
+    return post;
+  }
+
+  public CommentGroup comment() {
+    return comment;
   }
 
   public WishSpuGroup wishspu() {

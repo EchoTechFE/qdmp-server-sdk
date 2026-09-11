@@ -161,6 +161,60 @@ public final class RouteMeta {
           "GET",
           "/genai/v1/detail",
           "genai",
+          true),
+      new Entry(
+          "markBatchAdd",
+          "POST",
+          "/mark/v1/batch/add",
+          "standard",
+          true),
+      new Entry(
+          "postDetail",
+          "GET",
+          "/post/v1/detail",
+          "standard",
+          true),
+      new Entry(
+          "postList",
+          "GET",
+          "/post/v1/list",
+          "standard",
+          true),
+      new Entry(
+          "postMyList",
+          "GET",
+          "/post/v1/me/list",
+          "standard",
+          true),
+      new Entry(
+          "commentCreate",
+          "POST",
+          "/comment",
+          "standard",
+          true),
+      new Entry(
+          "commentReply",
+          "POST",
+          "/comment/{commentId}/reply",
+          "standard",
+          true),
+      new Entry(
+          "commentLike",
+          "POST",
+          "/comment/{commentId}/like",
+          "standard",
+          true),
+      new Entry(
+          "postComments",
+          "GET",
+          "/post/{postId}/comments",
+          "standard",
+          true),
+      new Entry(
+          "commentReplies",
+          "GET",
+          "/comment/{commentId}/replies",
+          "standard",
           true)
           ));
 

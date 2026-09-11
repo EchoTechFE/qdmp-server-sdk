@@ -93,6 +93,14 @@
     {
       "name": "genai",
       "description": "GenAI：异步 AI 生成任务（经上游 AI 网关调度）"
+    },
+    {
+      "name": "post",
+      "description": "社区发帖：查询帖子详情和列表"
+    },
+    {
+      "name": "comment",
+      "description": "评论：发表评论、回复、点赞和查询评论"
     }
   ],
   "paths": {
@@ -3437,6 +3445,333 @@
           }
         }
       }
+    },
+    "/mark/v1/batch/add": {
+      "post": {
+        "operationId": "markBatchAdd",
+        "summary": "批量添加标记",
+        "description": "为多个 SPU 创建标记。",
+        "tags": [
+          "marks"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MarkBatchAddRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/MarkBatchAddResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/post/v1/detail": {
+      "get": {
+        "operationId": "postDetail",
+        "summary": "获取帖子详情",
+        "description": "按帖子 ID 获取详情。",
+        "tags": [
+          "post"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/PostIdQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PostObjectResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/post/v1/list": {
+      "get": {
+        "operationId": "postList",
+        "summary": "获取帖子列表",
+        "description": "获取公开帖子列表；分页参数可省略。",
+        "tags": [
+          "post"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit100Query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PostObjectResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/post/v1/me/list": {
+      "get": {
+        "operationId": "postMyList",
+        "summary": "获取我的帖子列表",
+        "description": "获取当前用户的帖子列表；分页参数可省略。",
+        "tags": [
+          "post"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetQuery"
+          },
+          {
+            "$ref": "#/components/parameters/Limit100Query"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PostObjectResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/comment": {
+      "post": {
+        "operationId": "commentCreate",
+        "summary": "创建帖子评论",
+        "description": "为帖子创建评论；帖子不存在时返回 HTTP 404。",
+        "tags": [
+          "comment"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentCreateRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommentCreateResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "404": {"$ref": "#/components/responses/NotFoundResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/comment/{commentId}/reply": {
+      "post": {
+        "operationId": "commentReply",
+        "summary": "回复评论",
+        "description": "回复指定评论；评论不存在时返回 HTTP 404。",
+        "tags": [
+          "comment"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CommentIdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentReplyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommentCreateResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "404": {"$ref": "#/components/responses/NotFoundResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/comment/{commentId}/like": {
+      "post": {
+        "operationId": "commentLike",
+        "summary": "点赞或取消点赞评论",
+        "description": "设置评论点赞状态；评论不存在时返回 HTTP 404。",
+        "tags": [
+          "comment"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CommentIdPath"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CommentLikeRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/EmptyDataResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "404": {"$ref": "#/components/responses/NotFoundResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/post/{postId}/comments": {
+      "get": {
+        "operationId": "postComments",
+        "summary": "获取帖子评论",
+        "description": "获取帖子顶级评论及首批回复；帖子不存在时返回 HTTP 404。",
+        "tags": [
+          "comment"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/PostIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit20Query"
+          },
+          {
+            "$ref": "#/components/parameters/OffsetQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/PostCommentsResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "404": {"$ref": "#/components/responses/NotFoundResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
+    },
+    "/comment/{commentId}/replies": {
+      "get": {
+        "operationId": "commentReplies",
+        "summary": "获取评论回复",
+        "description": "获取指定评论的回复；评论不存在时返回 HTTP 404。",
+        "tags": [
+          "comment"
+        ],
+        "x-qdmp-auth-scheme": "standard",
+        "x-qdmp-token-required": true,
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/AccessTokenHeader"
+          },
+          {
+            "$ref": "#/components/parameters/QdmpVersionHeader"
+          },
+          {
+            "$ref": "#/components/parameters/CommentIdPath"
+          },
+          {
+            "$ref": "#/components/parameters/Limit20Query"
+          },
+          {
+            "$ref": "#/components/parameters/CursorQuery"
+          }
+        ],
+        "responses": {
+          "200": {
+            "$ref": "#/components/responses/CommentRepliesResponse"
+          },
+          "401": {"$ref": "#/components/responses/UnauthorizedResponse"},
+          "404": {"$ref": "#/components/responses/NotFoundResponse"},
+          "default": {"$ref": "#/components/responses/GatewayErrorResponse"}
+        }
+      }
     }
   },
   "components": {
@@ -3477,6 +3812,77 @@
           "type": "string"
         },
         "description": "GenAI 接口专用应用 ID。"
+      },
+      "PostIdQuery": {
+        "name": "postId",
+        "in": "query",
+        "required": true,
+        "description": "帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      },
+      "PostIdPath": {
+        "name": "postId",
+        "in": "path",
+        "required": true,
+        "description": "帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      },
+      "CommentIdPath": {
+        "name": "commentId",
+        "in": "path",
+        "required": true,
+        "description": "评论 ID；源接口为 int64，在线格式为 string，值必须大于 0。",
+        "schema": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]*$"
+        }
+      },
+      "OffsetQuery": {
+        "name": "offset",
+        "in": "query",
+        "required": false,
+        "description": "从 0 开始的分页偏移量。",
+        "schema": {
+          "type": "string",
+          "default": "0"
+        }
+      },
+      "Limit100Query": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "帖子列表每页数量，默认 20，最大 100。",
+        "schema": {
+          "type": "string",
+          "default": "20",
+          "pattern": "^(100|[1-9][0-9]?)$"
+        }
+      },
+      "Limit20Query": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "评论或回复列表每页数量，默认 10，最大 20。",
+        "schema": {
+          "type": "string",
+          "default": "10",
+          "pattern": "^(20|1?[1-9])$"
+        }
+      },
+      "CursorQuery": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "description": "回复列表游标；首次请求省略，后续请求使用上一页响应返回的 cursor。",
+        "schema": {
+          "type": "string"
+        }
       }
     },
     "schemas": {
@@ -3911,6 +4317,327 @@
                 }
               },
               "additionalProperties": true
+            }
+          }
+        }
+      },
+      "MarkBatchAddRequest": {
+        "type": "object",
+        "description": "批量添加标记。",
+        "properties": {
+          "spuIds": {
+            "type": "array",
+            "description": "SPU ID 列表；源接口为 int64[]，在线格式为 string[]。",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "spuIds"
+        ]
+      },
+      "CommentCreateRequest": {
+        "type": "object",
+        "description": "创建帖子评论。",
+        "properties": {
+          "postId": {
+            "type": "string",
+            "description": "帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。",
+            "pattern": "^[1-9][0-9]*$"
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "postId",
+          "content"
+        ]
+      },
+      "CommentReplyRequest": {
+        "type": "object",
+        "description": "回复评论。",
+        "properties": {
+          "content": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "content"
+        ]
+      },
+      "CommentLikeRequest": {
+        "type": "object",
+        "properties": {
+          "liked": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "liked"
+        ]
+      },
+      "CommentItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "content": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "string"
+          },
+          "creator": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "replyToUser": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "rootCommentId": {
+            "type": "string"
+          },
+          "replyCommentId": {
+            "type": "string"
+          },
+          "likeCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "liked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "CommentThread": {
+        "type": "object",
+        "properties": {
+          "comment": {
+            "$ref": "#/components/schemas/CommentItem"
+          },
+          "replies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CommentItem"
+            }
+          },
+          "replyCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      },
+      "MarkBatchAddResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "result": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "PostObjectResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        ]
+      },
+      "CommentCreateResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "EmptyDataResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            }
+          }
+        ]
+      },
+      "PostCommentsResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CommentThread"
+                    }
+                  },
+                  "count": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CommentRepliesResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/BusinessEnvelopeBase"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "data": {
+                "type": "object",
+                "properties": {
+                  "items": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/components/schemas/CommentItem"
+                    }
+                  },
+                  "hasMore": {
+                    "type": "boolean"
+                  },
+                  "cursor": {
+                    "type": "string"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "format": "int32"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "responses": {
+      "UnauthorizedResponse": {
+        "description": "访问令牌缺失、非法或已过期。",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BusinessEnvelopeBase"}}}
+      },
+      "NotFoundResponse": {
+        "description": "请求引用的帖子或评论不存在。",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/BusinessEnvelopeBase"}}}
+      },
+      "GatewayErrorResponse": {
+        "description": "网关层错误。",
+        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/GatewayErrorEnvelope"}}}
+      },
+      "MarkBatchAddResponse": {
+        "description": "批量标记结果",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/MarkBatchAddResponse"
+            }
+          }
+        }
+      },
+      "PostObjectResponse": {
+        "description": "帖子数据（公开文档未定义 data 内部字段）",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PostObjectResponse"
+            }
+          }
+        }
+      },
+      "CommentCreateResponse": {
+        "description": "创建评论或回复结果",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CommentCreateResponse"
+            }
+          }
+        }
+      },
+      "EmptyDataResponse": {
+        "description": "操作成功",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/EmptyDataResponse"
+            }
+          }
+        }
+      },
+      "PostCommentsResponse": {
+        "description": "帖子评论",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/PostCommentsResponse"
+            }
+          }
+        }
+      },
+      "CommentRepliesResponse": {
+        "description": "评论回复",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/CommentRepliesResponse"
             }
           }
         }

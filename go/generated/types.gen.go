@@ -82,8 +82,247 @@ func (e WishCancelJSONBodyType) Valid() bool {
 	}
 }
 
+// BusinessEnvelopeBase 业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串("0")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。
+type BusinessEnvelopeBase struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code BusinessEnvelopeBase_Code `json:"code"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// BusinessEnvelopeBaseCode0 defines model for BusinessEnvelopeBase.Code.0.
+type BusinessEnvelopeBaseCode0 = int
+
+// BusinessEnvelopeBaseCode1 defines model for BusinessEnvelopeBase.Code.1.
+type BusinessEnvelopeBaseCode1 = string
+
+// BusinessEnvelopeBase_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type BusinessEnvelopeBase_Code struct {
+	union json.RawMessage
+}
+
+// CommentCreateRequest 创建帖子评论。
+type CommentCreateRequest struct {
+	Content string `json:"content"`
+
+	// PostId 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。
+	PostId string `json:"postId"`
+}
+
+// CommentCreateResponse defines model for CommentCreateResponse.
+type CommentCreateResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code CommentCreateResponse_Code `json:"code"`
+	Data *struct {
+		Id *string `json:"id,omitempty"`
+	} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// CommentCreateResponseCode0 defines model for CommentCreateResponse.Code.0.
+type CommentCreateResponseCode0 = int
+
+// CommentCreateResponseCode1 defines model for CommentCreateResponse.Code.1.
+type CommentCreateResponseCode1 = string
+
+// CommentCreateResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type CommentCreateResponse_Code struct {
+	union json.RawMessage
+}
+
+// CommentItem defines model for CommentItem.
+type CommentItem struct {
+	Content        *string                 `json:"content,omitempty"`
+	CreatedAt      *string                 `json:"createdAt,omitempty"`
+	Creator        *map[string]interface{} `json:"creator,omitempty"`
+	Id             *string                 `json:"id,omitempty"`
+	LikeCount      *int32                  `json:"likeCount,omitempty"`
+	Liked          *bool                   `json:"liked,omitempty"`
+	ReplyCommentId *string                 `json:"replyCommentId,omitempty"`
+	ReplyToUser    *map[string]interface{} `json:"replyToUser,omitempty"`
+	RootCommentId  *string                 `json:"rootCommentId,omitempty"`
+}
+
+// CommentLikeRequest defines model for CommentLikeRequest.
+type CommentLikeRequest struct {
+	Liked bool `json:"liked"`
+}
+
+// CommentRepliesResponse defines model for CommentRepliesResponse.
+type CommentRepliesResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code CommentRepliesResponse_Code `json:"code"`
+	Data *struct {
+		Count   *int32         `json:"count,omitempty"`
+		Cursor  *string        `json:"cursor,omitempty"`
+		HasMore *bool          `json:"hasMore,omitempty"`
+		Items   *[]CommentItem `json:"items,omitempty"`
+	} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// CommentRepliesResponseCode0 defines model for CommentRepliesResponse.Code.0.
+type CommentRepliesResponseCode0 = int
+
+// CommentRepliesResponseCode1 defines model for CommentRepliesResponse.Code.1.
+type CommentRepliesResponseCode1 = string
+
+// CommentRepliesResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type CommentRepliesResponse_Code struct {
+	union json.RawMessage
+}
+
+// CommentReplyRequest 回复评论。
+type CommentReplyRequest struct {
+	Content string `json:"content"`
+}
+
+// CommentThread defines model for CommentThread.
+type CommentThread struct {
+	Comment    *CommentItem   `json:"comment,omitempty"`
+	Replies    *[]CommentItem `json:"replies,omitempty"`
+	ReplyCount *int32         `json:"replyCount,omitempty"`
+}
+
+// EmptyDataResponse defines model for EmptyDataResponse.
+type EmptyDataResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code EmptyDataResponse_Code  `json:"code"`
+	Data *map[string]interface{} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// EmptyDataResponseCode0 defines model for EmptyDataResponse.Code.0.
+type EmptyDataResponseCode0 = int
+
+// EmptyDataResponseCode1 defines model for EmptyDataResponse.Code.1.
+type EmptyDataResponseCode1 = string
+
+// EmptyDataResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type EmptyDataResponse_Code struct {
+	union json.RawMessage
+}
+
+// GatewayErrorEnvelope 第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13("query parse error")、2("openid is required")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。
+type GatewayErrorEnvelope struct {
+	// Code 类 gRPC 状态码，实测见过 2、13
+	Code int `json:"code"`
+
+	// Details 错误详情，具体结构未完全验证
+	Details interface{} `json:"details,omitempty"`
+	Message string      `json:"message"`
+}
+
+// MarkBatchAddRequest 批量添加标记。
+type MarkBatchAddRequest struct {
+	// SpuIds SPU ID 列表；源接口为 int64[]，在线格式为 string[]。
+	SpuIds []string `json:"spuIds"`
+}
+
+// MarkBatchAddResponse defines model for MarkBatchAddResponse.
+type MarkBatchAddResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code MarkBatchAddResponse_Code `json:"code"`
+	Data *struct {
+		Result *map[string]string `json:"result,omitempty"`
+	} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// MarkBatchAddResponseCode0 defines model for MarkBatchAddResponse.Code.0.
+type MarkBatchAddResponseCode0 = int
+
+// MarkBatchAddResponseCode1 defines model for MarkBatchAddResponse.Code.1.
+type MarkBatchAddResponseCode1 = string
+
+// MarkBatchAddResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type MarkBatchAddResponse_Code struct {
+	union json.RawMessage
+}
+
+// PostCommentsResponse defines model for PostCommentsResponse.
+type PostCommentsResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code PostCommentsResponse_Code `json:"code"`
+	Data *struct {
+		Count *int32           `json:"count,omitempty"`
+		Items *[]CommentThread `json:"items,omitempty"`
+	} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// PostCommentsResponseCode0 defines model for PostCommentsResponse.Code.0.
+type PostCommentsResponseCode0 = int
+
+// PostCommentsResponseCode1 defines model for PostCommentsResponse.Code.1.
+type PostCommentsResponseCode1 = string
+
+// PostCommentsResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type PostCommentsResponse_Code struct {
+	union json.RawMessage
+}
+
+// PostObjectResponse defines model for PostObjectResponse.
+type PostObjectResponse struct {
+	// Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+	Code PostObjectResponse_Code `json:"code"`
+	Data *map[string]interface{} `json:"data,omitempty"`
+
+	// Message 人类可读的提示信息
+	Message string `json:"message"`
+
+	// RequestId 请求追踪 ID
+	RequestId *string `json:"requestId,omitempty"`
+}
+
+// PostObjectResponseCode0 defines model for PostObjectResponse.Code.0.
+type PostObjectResponseCode0 = int
+
+// PostObjectResponseCode1 defines model for PostObjectResponse.Code.1.
+type PostObjectResponseCode1 = string
+
+// PostObjectResponse_Code 业务状态码，0/"0" 通常表示成功，非零/非"0"表示业务错误。取值不是封闭枚举，已知码见顶层 x-error-codes。
+type PostObjectResponse_Code struct {
+	union json.RawMessage
+}
+
 // AccessTokenHeader defines model for AccessTokenHeader.
 type AccessTokenHeader = string
+
+// CommentIdPath defines model for CommentIdPath.
+type CommentIdPath = string
+
+// CursorQuery defines model for CursorQuery.
+type CursorQuery = string
 
 // GenaiAccessTokenHeader defines model for GenaiAccessTokenHeader.
 type GenaiAccessTokenHeader = string
@@ -91,8 +330,32 @@ type GenaiAccessTokenHeader = string
 // GenaiAppIdHeader defines model for GenaiAppIdHeader.
 type GenaiAppIdHeader = string
 
+// Limit100Query defines model for Limit100Query.
+type Limit100Query = string
+
+// Limit20Query defines model for Limit20Query.
+type Limit20Query = string
+
+// OffsetQuery defines model for OffsetQuery.
+type OffsetQuery = string
+
+// PostIdPath defines model for PostIdPath.
+type PostIdPath = string
+
+// PostIdQuery defines model for PostIdQuery.
+type PostIdQuery = string
+
 // QdmpVersionHeader defines model for QdmpVersionHeader.
 type QdmpVersionHeader = string
+
+// GatewayErrorResponse 第二种错误信封：网关层错误，不含 data / requestId 字段，与业务信封结构不同。code 是类 gRPC 状态码的小整数，实测见过 13("query parse error")、2("openid is required")。这两个具体码是网关层示例，不属于顶层 x-error-codes 清单（那份清单专指业务信封的已知错误码）。HTTP 状态码未逐条验证。
+type GatewayErrorResponse = GatewayErrorEnvelope
+
+// NotFoundResponse 业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串("0")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。
+type NotFoundResponse = BusinessEnvelopeBase
+
+// UnauthorizedResponse 业务信封基础结构 {code, message, requestId, data}（data 由各 operation 的响应单独描述）。实测确认：code 字段类型不统一，见过数字(0/10008/20000等)也见过字符串("0")；且不保证 HTTP 200 即代表业务成功——例如 refreshToken 过期时是 HTTP 200 + code=10008，而 access-token 缺失/非法则是真实 HTTP 401 + code=10005。调用方必须显式检查 code 字段，不能只信任 HTTP 状态码。
+type UnauthorizedResponse = BusinessEnvelopeBase
 
 // AuthRefreshJSONBody defines parameters for AuthRefresh.
 type AuthRefreshJSONBody struct {
@@ -138,6 +401,48 @@ type AuthToken200JSONResponseBodyCode1 = string
 // AuthToken200JSONResponseBody_Code defines parameters for AuthToken.
 type AuthToken200JSONResponseBody_Code struct {
 	union json.RawMessage
+}
+
+// CommentCreateParams defines parameters for CommentCreate.
+type CommentCreateParams struct {
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// CommentLikeParams defines parameters for CommentLike.
+type CommentLikeParams struct {
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// CommentRepliesParams defines parameters for CommentReplies.
+type CommentRepliesParams struct {
+	// Limit 评论或回复列表每页数量，默认 10，最大 20。
+	Limit *Limit20Query `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor 回复列表游标；首次请求省略，后续请求使用上一页响应返回的 cursor。
+	Cursor *CursorQuery `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// CommentReplyParams defines parameters for CommentReply.
+type CommentReplyParams struct {
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
 }
 
 // GenaiDetailParams defines parameters for GenaiDetail.
@@ -321,6 +626,15 @@ type MarkAdd401JSONResponseBody_Code struct {
 	union json.RawMessage
 }
 
+// MarkBatchAddParams defines parameters for MarkBatchAdd.
+type MarkBatchAddParams struct {
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
 // MarkDetailParams defines parameters for MarkDetail.
 type MarkDetailParams struct {
 	// Id mark spu info ID（int64 线格式为字符串）
@@ -436,6 +750,63 @@ type MarkSearch401JSONResponseBodyCode1 = string
 // MarkSearch401JSONResponseBody_Code defines parameters for MarkSearch.
 type MarkSearch401JSONResponseBody_Code struct {
 	union json.RawMessage
+}
+
+// PostDetailParams defines parameters for PostDetail.
+type PostDetailParams struct {
+	// PostId 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。
+	PostId PostIdQuery `form:"postId" json:"postId"`
+
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// PostListParams defines parameters for PostList.
+type PostListParams struct {
+	// Offset 从 0 开始的分页偏移量。
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Limit 帖子列表每页数量，默认 20，最大 100。
+	Limit *Limit100Query `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// PostMyListParams defines parameters for PostMyList.
+type PostMyListParams struct {
+	// Offset 从 0 开始的分页偏移量。
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Limit 帖子列表每页数量，默认 20，最大 100。
+	Limit *Limit100Query `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
+}
+
+// PostCommentsParams defines parameters for PostComments.
+type PostCommentsParams struct {
+	// Limit 评论或回复列表每页数量，默认 10，最大 20。
+	Limit *Limit20Query `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset 从 0 开始的分页偏移量。
+	Offset *OffsetQuery `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// AccessToken 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。
+	AccessToken AccessTokenHeader `json:"access-token"`
+
+	// XEchoQdmpVersion qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。
+	XEchoQdmpVersion QdmpVersionHeader `json:"x-echo-qdmp-version"`
 }
 
 // SpuDetailParams defines parameters for SpuDetail.
@@ -804,11 +1175,23 @@ type AuthRefreshJSONRequestBody AuthRefreshJSONBody
 // AuthTokenJSONRequestBody defines body for AuthToken for application/json ContentType.
 type AuthTokenJSONRequestBody AuthTokenJSONBody
 
+// CommentCreateJSONRequestBody defines body for CommentCreate for application/json ContentType.
+type CommentCreateJSONRequestBody = CommentCreateRequest
+
+// CommentLikeJSONRequestBody defines body for CommentLike for application/json ContentType.
+type CommentLikeJSONRequestBody = CommentLikeRequest
+
+// CommentReplyJSONRequestBody defines body for CommentReply for application/json ContentType.
+type CommentReplyJSONRequestBody = CommentReplyRequest
+
 // GenaiGenerateJSONRequestBody defines body for GenaiGenerate for application/json ContentType.
 type GenaiGenerateJSONRequestBody GenaiGenerateJSONBody
 
 // MarkAddJSONRequestBody defines body for MarkAdd for application/json ContentType.
 type MarkAddJSONRequestBody MarkAddJSONBody
+
+// MarkBatchAddJSONRequestBody defines body for MarkBatchAdd for application/json ContentType.
+type MarkBatchAddJSONRequestBody = MarkBatchAddRequest
 
 // WishAddJSONRequestBody defines body for WishAdd for application/json ContentType.
 type WishAddJSONRequestBody WishAddJSONBody
@@ -1055,6 +1438,440 @@ func (a SpuSearch200JSONResponseBody_Data_Items_Item) MarshalJSON() ([]byte, err
 		}
 	}
 	return json.Marshal(object)
+}
+
+// AsBusinessEnvelopeBaseCode0 returns the union data inside the BusinessEnvelopeBase_Code as a BusinessEnvelopeBaseCode0
+func (t BusinessEnvelopeBase_Code) AsBusinessEnvelopeBaseCode0() (BusinessEnvelopeBaseCode0, error) {
+	var body BusinessEnvelopeBaseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBusinessEnvelopeBaseCode0 overwrites any union data inside the BusinessEnvelopeBase_Code as the provided BusinessEnvelopeBaseCode0
+func (t *BusinessEnvelopeBase_Code) FromBusinessEnvelopeBaseCode0(v BusinessEnvelopeBaseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBusinessEnvelopeBaseCode0 performs a merge with any union data inside the BusinessEnvelopeBase_Code, using the provided BusinessEnvelopeBaseCode0
+func (t *BusinessEnvelopeBase_Code) MergeBusinessEnvelopeBaseCode0(v BusinessEnvelopeBaseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBusinessEnvelopeBaseCode1 returns the union data inside the BusinessEnvelopeBase_Code as a BusinessEnvelopeBaseCode1
+func (t BusinessEnvelopeBase_Code) AsBusinessEnvelopeBaseCode1() (BusinessEnvelopeBaseCode1, error) {
+	var body BusinessEnvelopeBaseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBusinessEnvelopeBaseCode1 overwrites any union data inside the BusinessEnvelopeBase_Code as the provided BusinessEnvelopeBaseCode1
+func (t *BusinessEnvelopeBase_Code) FromBusinessEnvelopeBaseCode1(v BusinessEnvelopeBaseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeBusinessEnvelopeBaseCode1 performs a merge with any union data inside the BusinessEnvelopeBase_Code, using the provided BusinessEnvelopeBaseCode1
+func (t *BusinessEnvelopeBase_Code) MergeBusinessEnvelopeBaseCode1(v BusinessEnvelopeBaseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t BusinessEnvelopeBase_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *BusinessEnvelopeBase_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCommentCreateResponseCode0 returns the union data inside the CommentCreateResponse_Code as a CommentCreateResponseCode0
+func (t CommentCreateResponse_Code) AsCommentCreateResponseCode0() (CommentCreateResponseCode0, error) {
+	var body CommentCreateResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCommentCreateResponseCode0 overwrites any union data inside the CommentCreateResponse_Code as the provided CommentCreateResponseCode0
+func (t *CommentCreateResponse_Code) FromCommentCreateResponseCode0(v CommentCreateResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCommentCreateResponseCode0 performs a merge with any union data inside the CommentCreateResponse_Code, using the provided CommentCreateResponseCode0
+func (t *CommentCreateResponse_Code) MergeCommentCreateResponseCode0(v CommentCreateResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCommentCreateResponseCode1 returns the union data inside the CommentCreateResponse_Code as a CommentCreateResponseCode1
+func (t CommentCreateResponse_Code) AsCommentCreateResponseCode1() (CommentCreateResponseCode1, error) {
+	var body CommentCreateResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCommentCreateResponseCode1 overwrites any union data inside the CommentCreateResponse_Code as the provided CommentCreateResponseCode1
+func (t *CommentCreateResponse_Code) FromCommentCreateResponseCode1(v CommentCreateResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCommentCreateResponseCode1 performs a merge with any union data inside the CommentCreateResponse_Code, using the provided CommentCreateResponseCode1
+func (t *CommentCreateResponse_Code) MergeCommentCreateResponseCode1(v CommentCreateResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CommentCreateResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CommentCreateResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsCommentRepliesResponseCode0 returns the union data inside the CommentRepliesResponse_Code as a CommentRepliesResponseCode0
+func (t CommentRepliesResponse_Code) AsCommentRepliesResponseCode0() (CommentRepliesResponseCode0, error) {
+	var body CommentRepliesResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCommentRepliesResponseCode0 overwrites any union data inside the CommentRepliesResponse_Code as the provided CommentRepliesResponseCode0
+func (t *CommentRepliesResponse_Code) FromCommentRepliesResponseCode0(v CommentRepliesResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCommentRepliesResponseCode0 performs a merge with any union data inside the CommentRepliesResponse_Code, using the provided CommentRepliesResponseCode0
+func (t *CommentRepliesResponse_Code) MergeCommentRepliesResponseCode0(v CommentRepliesResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsCommentRepliesResponseCode1 returns the union data inside the CommentRepliesResponse_Code as a CommentRepliesResponseCode1
+func (t CommentRepliesResponse_Code) AsCommentRepliesResponseCode1() (CommentRepliesResponseCode1, error) {
+	var body CommentRepliesResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromCommentRepliesResponseCode1 overwrites any union data inside the CommentRepliesResponse_Code as the provided CommentRepliesResponseCode1
+func (t *CommentRepliesResponse_Code) FromCommentRepliesResponseCode1(v CommentRepliesResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeCommentRepliesResponseCode1 performs a merge with any union data inside the CommentRepliesResponse_Code, using the provided CommentRepliesResponseCode1
+func (t *CommentRepliesResponse_Code) MergeCommentRepliesResponseCode1(v CommentRepliesResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t CommentRepliesResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *CommentRepliesResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsEmptyDataResponseCode0 returns the union data inside the EmptyDataResponse_Code as a EmptyDataResponseCode0
+func (t EmptyDataResponse_Code) AsEmptyDataResponseCode0() (EmptyDataResponseCode0, error) {
+	var body EmptyDataResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEmptyDataResponseCode0 overwrites any union data inside the EmptyDataResponse_Code as the provided EmptyDataResponseCode0
+func (t *EmptyDataResponse_Code) FromEmptyDataResponseCode0(v EmptyDataResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEmptyDataResponseCode0 performs a merge with any union data inside the EmptyDataResponse_Code, using the provided EmptyDataResponseCode0
+func (t *EmptyDataResponse_Code) MergeEmptyDataResponseCode0(v EmptyDataResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsEmptyDataResponseCode1 returns the union data inside the EmptyDataResponse_Code as a EmptyDataResponseCode1
+func (t EmptyDataResponse_Code) AsEmptyDataResponseCode1() (EmptyDataResponseCode1, error) {
+	var body EmptyDataResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromEmptyDataResponseCode1 overwrites any union data inside the EmptyDataResponse_Code as the provided EmptyDataResponseCode1
+func (t *EmptyDataResponse_Code) FromEmptyDataResponseCode1(v EmptyDataResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeEmptyDataResponseCode1 performs a merge with any union data inside the EmptyDataResponse_Code, using the provided EmptyDataResponseCode1
+func (t *EmptyDataResponse_Code) MergeEmptyDataResponseCode1(v EmptyDataResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t EmptyDataResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *EmptyDataResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsMarkBatchAddResponseCode0 returns the union data inside the MarkBatchAddResponse_Code as a MarkBatchAddResponseCode0
+func (t MarkBatchAddResponse_Code) AsMarkBatchAddResponseCode0() (MarkBatchAddResponseCode0, error) {
+	var body MarkBatchAddResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMarkBatchAddResponseCode0 overwrites any union data inside the MarkBatchAddResponse_Code as the provided MarkBatchAddResponseCode0
+func (t *MarkBatchAddResponse_Code) FromMarkBatchAddResponseCode0(v MarkBatchAddResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMarkBatchAddResponseCode0 performs a merge with any union data inside the MarkBatchAddResponse_Code, using the provided MarkBatchAddResponseCode0
+func (t *MarkBatchAddResponse_Code) MergeMarkBatchAddResponseCode0(v MarkBatchAddResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMarkBatchAddResponseCode1 returns the union data inside the MarkBatchAddResponse_Code as a MarkBatchAddResponseCode1
+func (t MarkBatchAddResponse_Code) AsMarkBatchAddResponseCode1() (MarkBatchAddResponseCode1, error) {
+	var body MarkBatchAddResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMarkBatchAddResponseCode1 overwrites any union data inside the MarkBatchAddResponse_Code as the provided MarkBatchAddResponseCode1
+func (t *MarkBatchAddResponse_Code) FromMarkBatchAddResponseCode1(v MarkBatchAddResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMarkBatchAddResponseCode1 performs a merge with any union data inside the MarkBatchAddResponse_Code, using the provided MarkBatchAddResponseCode1
+func (t *MarkBatchAddResponse_Code) MergeMarkBatchAddResponseCode1(v MarkBatchAddResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t MarkBatchAddResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *MarkBatchAddResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPostCommentsResponseCode0 returns the union data inside the PostCommentsResponse_Code as a PostCommentsResponseCode0
+func (t PostCommentsResponse_Code) AsPostCommentsResponseCode0() (PostCommentsResponseCode0, error) {
+	var body PostCommentsResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostCommentsResponseCode0 overwrites any union data inside the PostCommentsResponse_Code as the provided PostCommentsResponseCode0
+func (t *PostCommentsResponse_Code) FromPostCommentsResponseCode0(v PostCommentsResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostCommentsResponseCode0 performs a merge with any union data inside the PostCommentsResponse_Code, using the provided PostCommentsResponseCode0
+func (t *PostCommentsResponse_Code) MergePostCommentsResponseCode0(v PostCommentsResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPostCommentsResponseCode1 returns the union data inside the PostCommentsResponse_Code as a PostCommentsResponseCode1
+func (t PostCommentsResponse_Code) AsPostCommentsResponseCode1() (PostCommentsResponseCode1, error) {
+	var body PostCommentsResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostCommentsResponseCode1 overwrites any union data inside the PostCommentsResponse_Code as the provided PostCommentsResponseCode1
+func (t *PostCommentsResponse_Code) FromPostCommentsResponseCode1(v PostCommentsResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostCommentsResponseCode1 performs a merge with any union data inside the PostCommentsResponse_Code, using the provided PostCommentsResponseCode1
+func (t *PostCommentsResponse_Code) MergePostCommentsResponseCode1(v PostCommentsResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PostCommentsResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PostCommentsResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsPostObjectResponseCode0 returns the union data inside the PostObjectResponse_Code as a PostObjectResponseCode0
+func (t PostObjectResponse_Code) AsPostObjectResponseCode0() (PostObjectResponseCode0, error) {
+	var body PostObjectResponseCode0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostObjectResponseCode0 overwrites any union data inside the PostObjectResponse_Code as the provided PostObjectResponseCode0
+func (t *PostObjectResponse_Code) FromPostObjectResponseCode0(v PostObjectResponseCode0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostObjectResponseCode0 performs a merge with any union data inside the PostObjectResponse_Code, using the provided PostObjectResponseCode0
+func (t *PostObjectResponse_Code) MergePostObjectResponseCode0(v PostObjectResponseCode0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsPostObjectResponseCode1 returns the union data inside the PostObjectResponse_Code as a PostObjectResponseCode1
+func (t PostObjectResponse_Code) AsPostObjectResponseCode1() (PostObjectResponseCode1, error) {
+	var body PostObjectResponseCode1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromPostObjectResponseCode1 overwrites any union data inside the PostObjectResponse_Code as the provided PostObjectResponseCode1
+func (t *PostObjectResponse_Code) FromPostObjectResponseCode1(v PostObjectResponseCode1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergePostObjectResponseCode1 performs a merge with any union data inside the PostObjectResponse_Code, using the provided PostObjectResponseCode1
+func (t *PostObjectResponse_Code) MergePostObjectResponseCode1(v PostObjectResponseCode1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t PostObjectResponse_Code) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *PostObjectResponse_Code) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
 }
 
 // AsAuthRefresh200JSONResponseBodyCode0 returns the union data inside the AuthRefresh200JSONResponseBody_Code as a AuthRefresh200JSONResponseBodyCode0
