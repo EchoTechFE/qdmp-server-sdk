@@ -1,12 +1,23 @@
 # qdmp-server-sdk
 
-[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api/auth-token) 官方 Server SDK，[Node.js](#nodejs)、[Java](#java)、[Go](#go) 三端实现，类型安全的业务接口封装 + 应用凭证自动缓存。
+[![npm](https://img.shields.io/npm/v/@qdmp/qdmp-server-sdk?label=npm)](https://www.npmjs.com/package/@qdmp/qdmp-server-sdk)
+[![Go Reference](https://pkg.go.dev/badge/github.com/EchoTechFE/qdmp-server-sdk/go.svg)](https://pkg.go.dev/github.com/EchoTechFE/qdmp-server-sdk/go)
+[![Node CI](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/node-ci.yml/badge.svg?branch=main)](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/node-ci.yml)
+[![Java CI](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/java-ci.yml/badge.svg?branch=main)](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/java-ci.yml)
+[![Go CI](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/go-ci.yml/badge.svg?branch=main)](https://github.com/EchoTechFE/qdmp-server-sdk/actions/workflows/go-ci.yml)
+[![License](https://img.shields.io/github/license/EchoTechFE/qdmp-server-sdk)](./LICENSE)
+
+[千岛小程序开放平台 OpenAPI](https://open.qiandao.com/docs/api) 官方 Server SDK，提供 [Node.js](#nodejs)、[Java](#java) 和 [Go](#go) 三端实现，包括类型安全的业务接口和应用凭证自动缓存。
 
 ## Node.js
+
+### 安装
 
 ```bash
 npm install @qdmp/qdmp-server-sdk
 ```
+
+### 引用
 
 ```ts
 import { QdmpClient, QdmpApiError, QdmpValidationError } from '@qdmp/qdmp-server-sdk'
@@ -46,6 +57,8 @@ const appCredential = await qdmp.auth.getAppAccessToken()
 
 ## Java
 
+Java 包尚未发布到 Maven Central。当前可从仓库的 `java/` 目录构建；发布后的 Gradle 坐标如下：
+
 ```gradle
 dependencies {
   implementation("io.github.echotechfe:qdmp-server-sdk:<version>")
@@ -53,6 +66,14 @@ dependencies {
 ```
 
 ```java
+import io.github.echotechfe.qdmp.QdmpClient;
+import io.github.echotechfe.qdmp.QdmpClientConfig;
+import io.github.echotechfe.qdmp.QdmpContext;
+import io.github.echotechfe.qdmp.auth.AppAccessTokenResult;
+import io.github.echotechfe.qdmp.auth.RefreshTokenResult;
+import io.github.echotechfe.qdmp.auth.UserAccessTokenResult;
+import io.github.echotechfe.qdmp.generated.MarkAddRequest;
+
 QdmpClient qdmp = new QdmpClient(
     QdmpClientConfig.builder()
         .appId(System.getenv("QDMP_APP_ID"))
@@ -77,11 +98,22 @@ AppAccessTokenResult appCredential = qdmp.auth().getAppAccessToken();
 
 ## Go
 
+### 安装
+
 ```bash
 go get github.com/EchoTechFE/qdmp-server-sdk/go
 ```
 
+### 引用
+
 ```go
+import (
+    "os"
+
+    qdmp "github.com/EchoTechFE/qdmp-server-sdk/go"
+    "github.com/EchoTechFE/qdmp-server-sdk/go/generated"
+)
+
 client, err := qdmp.NewClient(qdmp.ClientOptions{
     AppID:     os.Getenv("QDMP_APP_ID"),
     AppSecret: os.Getenv("QDMP_APP_SECRET"),
