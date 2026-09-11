@@ -11,11 +11,14 @@ import io.github.echotechfe.qdmp.errors.QdmpApiError;
 import io.github.echotechfe.qdmp.generated.MarkAdd200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkAddRequest;
 import io.github.echotechfe.qdmp.generated.MarkAddRequestRating;
+import io.github.echotechfe.qdmp.generated.MarkBatchAddRequest;
+import io.github.echotechfe.qdmp.generated.MarkBatchAddResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkDetail200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkList200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkSearch200ResponseAllOfData;
 import io.github.echotechfe.qdmp.testsupport.TestClients;
 import java.io.IOException;
+import java.util.List;
 import okhttp3.HttpUrl;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -73,6 +76,30 @@ class MarkGroupTest {
     JsonNode body = JSON.readTree(recorded.getBody().readUtf8());
     assertThat(body.get("spuId").asText()).isEqualTo("spu-42");
     assertThat(body.get("rating").get("value").asInt()).isEqualTo(5);
+  }
+
+  @Test
+  void batchAdd_success_sendsSpuIdsAndParsesResult() throws Exception {
+    server.enqueue(
+        new MockResponse()
+            .setResponseCode(200)
+            .setBody(
+                "{\"code\":\"0\",\"message\":\"ok\",\"data\":{\"result\":{\"1\":\"mark-1\"}}}"));
+    QdmpClient client = TestClients.create(server);
+
+    MarkBatchAddResponseAllOfData result =
+        client
+            .mark()
+            .batchAdd(
+                QdmpContext.of("user-access-token"),
+                new MarkBatchAddRequest().spuIds(List.of("1")));
+
+    assertThat(result.getResult()).containsEntry("1", "mark-1");
+    RecordedRequest recorded = server.takeRequest();
+    assertThat(recorded.getMethod()).isEqualTo("POST");
+    assertThat(recorded.getPath()).isEqualTo("/mark/v1/batch/add");
+    assertThat(JSON.readTree(recorded.getBody().readUtf8()).get("spuIds").get(0).asText())
+        .isEqualTo("1");
   }
 
   @Test

@@ -1,5 +1,5 @@
 /**
- * Hand-authored request/response shapes for the 17 qdmp OpenAPI operations,
+ * Hand-authored request/response shapes for the 26 qdmp OpenAPI operations,
  * mirroring shared/openapi.yaml (int64/uint64 fields are string on the
  * wire — see that file's field-level notes for the real-world evidence).
  * These are intentionally plain, narrow interfaces rather than derived from
@@ -168,6 +168,67 @@ export interface MarkRating {
   value?: number;
 }
 
+/** int64 ID 在 JavaScript 中统一以字符串传递，避免精度丢失。 */
+export interface PostDetailParams {
+  postId: string;
+}
+export interface PostListParams {
+  offset?: string;
+  limit?: string;
+}
+export type PostData = Record<string, unknown>;
+export interface CommentCreateParams {
+  postId: string;
+  content: string;
+}
+export interface CommentReplyParams {
+  commentId: string;
+  content: string;
+}
+export interface CommentLikeParams {
+  commentId: string;
+  liked: boolean;
+}
+export interface PostCommentsParams {
+  postId: string;
+  limit?: string;
+  offset?: string;
+}
+export interface CommentRepliesParams {
+  commentId: string;
+  limit?: string;
+  cursor?: string;
+}
+export interface CreateCommentData {
+  id: string;
+}
+export interface CommentItem {
+  id: string;
+  content?: string;
+  createdAt?: string;
+  creator?: Record<string, unknown>;
+  replyToUser?: Record<string, unknown>;
+  rootCommentId?: string;
+  replyCommentId?: string;
+  likeCount?: number;
+  liked?: boolean;
+}
+export interface CommentThread {
+  comment?: CommentItem;
+  replies?: CommentItem[];
+  replyCount?: number;
+}
+export interface PostCommentsData {
+  items?: CommentThread[];
+  count?: number;
+}
+export interface CommentRepliesData {
+  items?: CommentItem[];
+  count?: number;
+  hasMore?: boolean;
+  cursor?: string;
+}
+
 export interface MarkSpuSummary {
   id?: string;
   name?: string;
@@ -177,6 +238,12 @@ export interface MarkSpuSummary {
 export interface MarkAddParams {
   spuId: string;
   rating?: MarkRating;
+}
+export interface MarkBatchAddParams {
+  spuIds: string[];
+}
+export interface MarkBatchAddData {
+  result?: Record<string, string>;
 }
 
 export interface MarkAddData {

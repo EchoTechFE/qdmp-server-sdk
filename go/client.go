@@ -81,6 +81,8 @@ type Client struct {
 	Spu     *SpuGroup
 	Tag     *TagGroup
 	Mark    *MarkGroup
+	Post    *PostGroup
+	Comment *CommentGroup
 	WishSpu *WishSpuGroup
 	GenAI   *GenAIGroup
 }
@@ -146,6 +148,8 @@ func NewClient(opts ClientOptions) (*Client, error) {
 	c.Spu = &SpuGroup{client: c}
 	c.Tag = &TagGroup{client: c}
 	c.Mark = &MarkGroup{client: c}
+	c.Post = &PostGroup{client: c}
+	c.Comment = &CommentGroup{client: c}
 	c.WishSpu = &WishSpuGroup{client: c}
 	c.GenAI = &GenAIGroup{client: c}
 	return c, nil

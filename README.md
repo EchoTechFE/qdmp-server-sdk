@@ -23,6 +23,8 @@ const credential = await qdmp.auth.getUserAccessToken(code)
 // 调业务接口：accessToken 每次显式传进去
 const me = await qdmp.user.me({ accessToken: credential.accessToken })
 await qdmp.mark.add({ accessToken: credential.accessToken }, { spuId: '123', rating: { value: 5 } })
+await qdmp.mark.batchAdd({ accessToken: credential.accessToken }, { spuIds: ['123', '456'] })
+await qdmp.comment.create({ accessToken: credential.accessToken }, { postId: '123', content: '很喜欢' })
 
 // accessToken 过期了，自己拿 refreshToken 换新的（SDK 不代管，也不自动重试）
 const fresh = await qdmp.auth.refreshToken(credential.refreshToken)
@@ -123,7 +125,7 @@ appCredential, err := client.Auth.GetAppAccessToken(ctx)
 | 分组 | 要求 |
 |---|---|
 | `auth.*` | 不需要凭证（用 appId/appSecret 或 refreshToken） |
-| `user.me` / `mark.*` / `wishspu.*` | 必须是用户授权凭证，缺失时本地直接报错，不发请求 |
+| `user.me` / `mark.*` / `wishspu.*` / `post.*` / `comment.*` | 必须是用户授权凭证，缺失时本地直接报错，不发请求 |
 | `island.*` / `spu.*` / `tag.*` / `genai.*` | 应用凭证也实测调通过，但 SDK 不做静默 fallback，传哪种由调用方决定 |
 
 `x-echo-qdmp-version` 头只在 `standard` 鉴权方案下发送，`genai` 分组用 `x-openapi-access-token` + `x-openapi-app-id` 另一对头，`auth` 分组不需要——三端都从 `shared/generated/route-meta.json` 读取每个 operation 的 `authScheme`/`tokenRequired`。

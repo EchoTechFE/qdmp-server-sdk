@@ -5,6 +5,8 @@ import io.github.echotechfe.qdmp.QdmpContext;
 import io.github.echotechfe.qdmp.QdmpTransport;
 import io.github.echotechfe.qdmp.generated.MarkAdd200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkAddRequest;
+import io.github.echotechfe.qdmp.generated.MarkBatchAddRequest;
+import io.github.echotechfe.qdmp.generated.MarkBatchAddResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkDetail200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkList200ResponseAllOfData;
 import io.github.echotechfe.qdmp.generated.MarkSearch200ResponseAllOfData;
@@ -43,6 +45,17 @@ public final class MarkGroup {
         ctx,
         request,
         MarkAdd200ResponseAllOfData.class);
+  }
+
+  /** Adds marks for multiple SPUs and returns the SPU-to-mark-ID mapping. */
+  public MarkBatchAddResponseAllOfData batchAdd(QdmpContext ctx, MarkBatchAddRequest request) {
+    RouteMeta.Entry route = RouteMeta.get("markBatchAdd");
+    return transport.post(
+        route.getPath(),
+        AuthScheme.fromWireValue(route.getAuthScheme()),
+        ctx,
+        request,
+        MarkBatchAddResponseAllOfData.class);
   }
 
   /**

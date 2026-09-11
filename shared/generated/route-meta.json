@@ -117,5 +117,68 @@
     "path": "/genai/v1/detail",
     "authScheme": "genai",
     "tokenRequired": true
+  },
+  {
+    "operationId": "markBatchAdd",
+    "method": "POST",
+    "path": "/mark/v1/batch/add",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "postDetail",
+    "method": "GET",
+    "path": "/post/v1/detail",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "postList",
+    "method": "GET",
+    "path": "/post/v1/list",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "postMyList",
+    "method": "GET",
+    "path": "/post/v1/me/list",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "commentCreate",
+    "method": "POST",
+    "path": "/comment",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "commentReply",
+    "method": "POST",
+    "path": "/comment/{commentId}/reply",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "commentLike",
+    "method": "POST",
+    "path": "/comment/{commentId}/like",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "postComments",
+    "method": "GET",
+    "path": "/post/{postId}/comments",
+    "authScheme": "standard",
+    "tokenRequired": true
+  },
+  {
+    "operationId": "commentReplies",
+    "method": "GET",
+    "path": "/comment/{commentId}/replies",
+    "authScheme": "standard",
+    "tokenRequired": true
   }
 ]

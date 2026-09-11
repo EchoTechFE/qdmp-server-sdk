@@ -3,6 +3,8 @@ import {getRouteMeta} from '../generated/route-meta.js';
 import type {
   MarkAddData,
   MarkAddParams,
+  MarkBatchAddData,
+  MarkBatchAddParams,
   MarkDetailData,
   MarkDetailParams,
   MarkListData,
@@ -26,6 +28,22 @@ export class MarkGroup {
       accessToken,
       qdmpVersion: this.deps.qdmpVersion,
       body: {spuId: params.spuId, rating: params.rating},
+    });
+  }
+
+  async batchAdd(
+    ctx: QdmpContext,
+    params: MarkBatchAddParams,
+  ): Promise<MarkBatchAddData> {
+    const accessToken = requireAccessToken(ctx);
+    const route = getRouteMeta('markBatchAdd');
+    return this.deps.http.request<MarkBatchAddData>({
+      method: route.method,
+      path: route.path,
+      authScheme: route.authScheme,
+      accessToken,
+      qdmpVersion: this.deps.qdmpVersion,
+      body: {spuIds: params.spuIds},
     });
   }
 

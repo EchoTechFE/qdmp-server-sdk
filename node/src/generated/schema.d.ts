@@ -344,6 +344,186 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/mark/v1/batch/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 批量添加标记
+         * @description 为多个 SPU 创建标记。
+         */
+        post: operations["markBatchAdd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/v1/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取帖子详情
+         * @description 按帖子 ID 获取详情。
+         */
+        get: operations["postDetail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/v1/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取帖子列表
+         * @description 获取公开帖子列表；分页参数可省略。
+         */
+        get: operations["postList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/v1/me/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取我的帖子列表
+         * @description 获取当前用户的帖子列表；分页参数可省略。
+         */
+        get: operations["postMyList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建帖子评论
+         * @description 为帖子创建评论；帖子不存在时返回 HTTP 404。
+         */
+        post: operations["commentCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comment/{commentId}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 回复评论
+         * @description 回复指定评论；评论不存在时返回 HTTP 404。
+         */
+        post: operations["commentReply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comment/{commentId}/like": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 点赞或取消点赞评论
+         * @description 设置评论点赞状态；评论不存在时返回 HTTP 404。
+         */
+        post: operations["commentLike"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/post/{postId}/comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取帖子评论
+         * @description 获取帖子顶级评论及首批回复；帖子不存在时返回 HTTP 404。
+         */
+        get: operations["postComments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/comment/{commentId}/replies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 获取评论回复
+         * @description 获取指定评论的回复；评论不存在时返回 HTTP 404。
+         */
+        get: operations["commentReplies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -552,8 +732,168 @@ export interface components {
                 [key: string]: unknown;
             })[];
         };
+        /** @description 批量添加标记。 */
+        MarkBatchAddRequest: {
+            /** @description SPU ID 列表；源接口为 int64[]，在线格式为 string[]。 */
+            spuIds: string[];
+        };
+        /** @description 创建帖子评论。 */
+        CommentCreateRequest: {
+            /** @description 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+            postId: string;
+            content: string;
+        };
+        /** @description 回复评论。 */
+        CommentReplyRequest: {
+            content: string;
+        };
+        CommentLikeRequest: {
+            liked: boolean;
+        };
+        CommentItem: {
+            id?: string;
+            content?: string;
+            createdAt?: string;
+            creator?: {
+                [key: string]: unknown;
+            };
+            replyToUser?: {
+                [key: string]: unknown;
+            };
+            rootCommentId?: string;
+            replyCommentId?: string;
+            /** Format: int32 */
+            likeCount?: number;
+            liked?: boolean;
+        };
+        CommentThread: {
+            comment?: components["schemas"]["CommentItem"];
+            replies?: components["schemas"]["CommentItem"][];
+            /** Format: int32 */
+            replyCount?: number;
+        };
+        MarkBatchAddResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                result?: {
+                    [key: string]: string;
+                };
+            };
+        };
+        PostObjectResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        CommentCreateResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                id?: string;
+            };
+        };
+        EmptyDataResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                [key: string]: unknown;
+            };
+        };
+        PostCommentsResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                items?: components["schemas"]["CommentThread"][];
+                /** Format: int32 */
+                count?: number;
+            };
+        };
+        CommentRepliesResponse: components["schemas"]["BusinessEnvelopeBase"] & {
+            data?: {
+                items?: components["schemas"]["CommentItem"][];
+                hasMore?: boolean;
+                cursor?: string;
+                /** Format: int32 */
+                count?: number;
+            };
+        };
     };
-    responses: never;
+    responses: {
+        /** @description 访问令牌缺失、非法或已过期。 */
+        UnauthorizedResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BusinessEnvelopeBase"];
+            };
+        };
+        /** @description 请求引用的帖子或评论不存在。 */
+        NotFoundResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BusinessEnvelopeBase"];
+            };
+        };
+        /** @description 网关层错误。 */
+        GatewayErrorResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GatewayErrorEnvelope"];
+            };
+        };
+        /** @description 批量标记结果 */
+        MarkBatchAddResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["MarkBatchAddResponse"];
+            };
+        };
+        /** @description 帖子数据（公开文档未定义 data 内部字段） */
+        PostObjectResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PostObjectResponse"];
+            };
+        };
+        /** @description 创建评论或回复结果 */
+        CommentCreateResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CommentCreateResponse"];
+            };
+        };
+        /** @description 操作成功 */
+        EmptyDataResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmptyDataResponse"];
+            };
+        };
+        /** @description 帖子评论 */
+        PostCommentsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PostCommentsResponse"];
+            };
+        };
+        /** @description 评论回复 */
+        CommentRepliesResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CommentRepliesResponse"];
+            };
+        };
+    };
     parameters: {
         /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
         AccessTokenHeader: string;
@@ -563,6 +903,20 @@ export interface components {
         GenaiAccessTokenHeader: string;
         /** @description GenAI 接口专用应用 ID。 */
         GenaiAppIdHeader: string;
+        /** @description 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+        PostIdQuery: string;
+        /** @description 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+        PostIdPath: string;
+        /** @description 评论 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+        CommentIdPath: string;
+        /** @description 从 0 开始的分页偏移量。 */
+        OffsetQuery: string;
+        /** @description 帖子列表每页数量，默认 20，最大 100。 */
+        Limit100Query: string;
+        /** @description 评论或回复列表每页数量，默认 10，最大 20。 */
+        Limit20Query: string;
+        /** @description 回复列表游标；首次请求省略，后续请求使用上一页响应返回的 cursor。 */
+        CursorQuery: string;
     };
     requestBodies: never;
     headers: never;
@@ -2088,6 +2442,233 @@ export interface operations {
                     };
                 };
             };
+        };
+    };
+    markBatchAdd: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MarkBatchAddRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["MarkBatchAddResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    postDetail: {
+        parameters: {
+            query: {
+                /** @description 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+                postId: components["parameters"]["PostIdQuery"];
+            };
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PostObjectResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    postList: {
+        parameters: {
+            query?: {
+                /** @description 从 0 开始的分页偏移量。 */
+                offset?: components["parameters"]["OffsetQuery"];
+                /** @description 帖子列表每页数量，默认 20，最大 100。 */
+                limit?: components["parameters"]["Limit100Query"];
+            };
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PostObjectResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    postMyList: {
+        parameters: {
+            query?: {
+                /** @description 从 0 开始的分页偏移量。 */
+                offset?: components["parameters"]["OffsetQuery"];
+                /** @description 帖子列表每页数量，默认 20，最大 100。 */
+                limit?: components["parameters"]["Limit100Query"];
+            };
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PostObjectResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    commentCreate: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentCreateRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["CommentCreateResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            404: components["responses"]["NotFoundResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    commentReply: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path: {
+                /** @description 评论 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+                commentId: components["parameters"]["CommentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentReplyRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["CommentCreateResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            404: components["responses"]["NotFoundResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    commentLike: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path: {
+                /** @description 评论 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+                commentId: components["parameters"]["CommentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CommentLikeRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["EmptyDataResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            404: components["responses"]["NotFoundResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    postComments: {
+        parameters: {
+            query?: {
+                /** @description 评论或回复列表每页数量，默认 10，最大 20。 */
+                limit?: components["parameters"]["Limit20Query"];
+                /** @description 从 0 开始的分页偏移量。 */
+                offset?: components["parameters"]["OffsetQuery"];
+            };
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path: {
+                /** @description 帖子 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+                postId: components["parameters"]["PostIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PostCommentsResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            404: components["responses"]["NotFoundResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
+        };
+    };
+    commentReplies: {
+        parameters: {
+            query?: {
+                /** @description 评论或回复列表每页数量，默认 10，最大 20。 */
+                limit?: components["parameters"]["Limit20Query"];
+                /** @description 回复列表游标；首次请求省略，后续请求使用上一页响应返回的 cursor。 */
+                cursor?: components["parameters"]["CursorQuery"];
+            };
+            header: {
+                /** @description 用户授权凭证或应用凭证的访问令牌，通过 /auth/v1/token 获取。standard 鉴权方案下必须携带；SDK 层面只要求“传了某个凭证”，不区分是 CLIENT_CREDENTIALS 换的应用凭证还是 AUTHORIZATION_CODE 换的用户授权凭证——见该 operation 上的 x-qdmp-token-required。 */
+                "access-token": components["parameters"]["AccessTokenHeader"];
+                /** @description qdmp 协议版本标识，可由 SDK 配置项覆盖，默认值 "1.0"。仅 standard 鉴权方案需要。 */
+                "x-echo-qdmp-version": components["parameters"]["QdmpVersionHeader"];
+            };
+            path: {
+                /** @description 评论 ID；源接口为 int64，在线格式为 string，值必须大于 0。 */
+                commentId: components["parameters"]["CommentIdPath"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["CommentRepliesResponse"];
+            401: components["responses"]["UnauthorizedResponse"];
+            404: components["responses"]["NotFoundResponse"];
+            default: components["responses"]["GatewayErrorResponse"];
         };
     };
 }

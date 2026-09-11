@@ -5,6 +5,8 @@ import {QdmpValidationError} from './errors.js';
 import {GenaiGroup} from './groups/genai.js';
 import {IslandGroup} from './groups/island.js';
 import {MarkGroup} from './groups/mark.js';
+import {PostGroup} from './groups/post.js';
+import {CommentGroup} from './groups/comment.js';
 import {SpuGroup} from './groups/spu.js';
 import {TagGroup} from './groups/tag.js';
 import {UserGroup} from './groups/user.js';
@@ -94,6 +96,8 @@ export class QdmpClient {
   readonly spu: SpuGroup;
   readonly tag: TagGroup;
   readonly mark: MarkGroup;
+  readonly post: PostGroup;
+  readonly comment: CommentGroup;
   readonly wishspu: WishSpuGroup;
   readonly genai: GenaiGroup;
 
@@ -116,6 +120,8 @@ export class QdmpClient {
     this.spu = new SpuGroup(deps);
     this.tag = new TagGroup(deps);
     this.mark = new MarkGroup(deps);
+    this.post = new PostGroup(deps);
+    this.comment = new CommentGroup(deps);
     this.wishspu = new WishSpuGroup(deps);
     this.genai = new GenaiGroup(deps);
   }

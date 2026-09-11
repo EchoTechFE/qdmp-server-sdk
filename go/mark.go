@@ -28,6 +28,11 @@ type MarkAddResult struct {
 	ID string `json:"id"`
 }
 
+// MarkBatchAddResult maps each requested SPU ID to its created mark ID.
+type MarkBatchAddResult struct {
+	Result map[string]string `json:"result"`
+}
+
 // MarkItem is one element of mark.list / mark.search's data.items[].
 type MarkItem struct {
 	ID        string      `json:"id"`
@@ -97,6 +102,22 @@ func (g *MarkGroup) Add(ctx context.Context, qdmpCtx Context, body generated.Mar
 	var result MarkAddResult
 	if err := json.Unmarshal(data, &result); err != nil {
 		return nil, fmt.Errorf("qdmp: failed to decode mark.add response: %w", err)
+	}
+	return &result, nil
+}
+
+// BatchAdd adds marks for multiple SPUs.
+func (g *MarkGroup) BatchAdd(ctx context.Context, qdmpCtx Context, body generated.MarkBatchAddJSONRequestBody) (*MarkBatchAddResult, error) {
+	if err := requireAccessToken(qdmpCtx, "mark.batchAdd"); err != nil {
+		return nil, err
+	}
+	data, err := g.client.doRequest(ctx, requestParams{method: http.MethodPost, path: "/mark/v1/batch/add", jsonBody: body, authScheme: authSchemeStandard, accessToken: qdmpCtx.AccessToken})
+	if err != nil {
+		return nil, err
+	}
+	var result MarkBatchAddResult
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("qdmp: failed to decode mark.batchAdd response: %w", err)
 	}
 	return &result, nil
 }
